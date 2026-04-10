@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KnockOut! 🐧</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0d1b2a;
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+  width: 100vw; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+}
+#gameCanvas { display: block; }
+#ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#hud { display: flex; justify-content: space-between; padding: 12px 18px; gap: 10px; }
+.hud-box {
+  background: rgba(0,0,0,0.6);
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 12px; padding: 6px 16px;
+  color: #fff; font-size: 11px; font-weight: 600;
+  text-align: center; letter-spacing: 1px; text-transform: uppercase;
+}
+.hud-box span { display: block; font-size: 22px; font-weight: 800; letter-spacing: 0; }
+#bottom-ui {
+  position: absolute; bottom: 0; left: 0; width: 100%;
+  display: flex; flex-direction: column; align-items: center;
+  padding-bottom: 18px; gap: 8px;
+}
+#aim-hint { color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 600; }
+#power-label { color: rgba(255,255,255,0.6); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+#power-bar-wrap { background: rgba(0,0,0,0.5); border-radius: 20px; width: 200px; height: 14px; overflow: hidden; border: 1.5px solid rgba(255,255,255,0.15); }
+#power-bar { height: 100%; width: 0%; background: #00e5ff; border-radius: 20px; transition: width 0.05s, background 0.1s; }
+#phase-label { background: rgba(0,0,0,0.6); border: 1.5px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 5px 20px; color: #fff; font-size: 14px; font-weight: 700; }
+/* ── Shared buttons ─────────────────────────────────────────────── */
+.btn { border: none; border-radius: 12px; font-size: 15px; font-weight: 800; padding: 11px 28px; cursor: pointer; letter-spacing: 0.4px; transition: background 0.15s, transform 0.1s; opacity: 1; }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { cursor: not-allowed; opacity: 0.5; }
+.btn-primary { background: #00b4d8; color: #fff; box-shadow: 0 0 20px rgba(0,180,216,0.4); }
+.btn-primary:hover:not(:disabled) { background: #0096c7; }
+.btn-secondary { background: rgba(255,255,255,0.13); color: #fff; border: 1.5px solid rgba(255,255,255,0.22); }
+.btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
+.btn-green { background: #00c875; color: #fff; box-shadow: 0 0 20px rgba(0,200,117,0.35); }
+.btn-green:hover:not(:disabled) { background: #00a85f; }
+.btn-yellow { background: #00b4d8; color: #fff; box-shadow: 0 4px 0 #0077a0; }
+.btn-yellow:hover:not(:disabled) { background: #0096c7; }
+.btn-yellow:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 #0077a0; }
+.btn-sm { font-size: 13px; padding: 8px 20px; }
+
+/* ── Main lobby overlay ─────────────────────────────────────────── */
+#overlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: transparent; pointer-events: all;
+  overflow: hidden;
+}
+
+/* Top nav bar */
+#lobby-nav {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  flex-shrink: 0;
+}
+#lobby-nav .nav-title {
+  color: #fff; font-size: 22px; font-weight: 900;
+  letter-spacing: -0.5px; text-shadow: 0 0 20px rgba(0,200,255,0.5);
+  margin-right: auto;
+}
+.nav-btn {
+  background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.18);
+  border-radius: 10px; padding: 7px 14px;
+  color: #fff; font-size: 12px; font-weight: 700;
+  cursor: pointer; letter-spacing: 0.3px;
+  transition: background 0.15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.22); }
+.nav-btn .nav-icon { font-size: 14px; }
+
+/* Lobby body — left panel + right empty space */
+#lobby-body {
+  flex: 1; display: flex; align-items: flex-end;
+  padding: 0 32px 32px 32px;
+}
+
+/* Left panel: character + name + play */
+#lobby-left {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0;
+  width: 220px; flex-shrink: 0;
+}
+
+#char-preview {
+  position: relative; cursor: pointer; margin-bottom: 10px; align-self: center;
+}
+#char-preview img {
+  width: 140px; height: 140px; object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+  transition: transform 0.15s;
+}
+#char-preview:hover img { transform: scale(1.06); }
+#char-preview .customize-hint {
+  position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.7); color: #fff;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  padding: 4px 10px; border-radius: 20px; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s;
+}
+#char-preview:hover .customize-hint { opacity: 1; }
+
+#lobby-name-input {
+  width: 100%; padding: 10px 14px;
+  background: rgba(255,255,255,0.92); border: none; border-radius: 10px;
+  font-size: 18px; font-weight: 700; color: #1a1a2e;
+  outline: none; margin-bottom: 10px;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+}
+#lobby-name-input::placeholder { color: #aaa; font-weight: 500; }
+
+#play-btn {
+  width: 100%; padding: 14px;
+  font-size: 22px; font-weight: 900; letter-spacing: 1px;
+  border-radius: 12px; margin-bottom: 8px;
+}
+
+#lobby-mode-row {
+  display: flex; gap: 8px; width: 100%; align-items: center;
+}
+#lobby-mode-row .mode-label {
+  color: rgba(255,255,255,0.6); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
+}
+#lobby-mode-row select {
+  flex: 1; background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.22);
+  border-radius: 8px; padding: 6px 10px;
+  color: #fff; font-size: 13px; font-weight: 700; outline: none; cursor: pointer;
+}
+#lobby-mode-row select option { background: #1a2a3a; color: #fff; }
+
+/* mp sub-screens sit in place of the left panel */
+#mp-screen { display: none; flex-direction: column; align-items: flex-start; gap: 10px; width: 260px; }
+#mp-screen h2 { color: #fff; font-size: 20px; font-weight: 900; }
+#mp-screen p { color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.6; }
+#btn-row { display: none; } /* hidden — replaced by lobby UI */
+
+#mp-screen { display: none; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 320px; }
+#mp-screen h2 { color: #fff; font-size: 22px; font-weight: 800; }
+#mp-screen p { color: rgba(255,255,255,0.6); font-size: 13px; text-align: center; line-height: 1.6; }
+.sub-screen { display: none; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+.room-code-box {
+  background: rgba(0,229,255,0.1); border: 2px solid rgba(0,229,255,0.4);
+  border-radius: 12px; padding: 14px 24px;
+  color: #00e5ff; font-size: 28px; font-weight: 900;
+  letter-spacing: 4px; text-align: center; width: 100%;
+  cursor: pointer; transition: background 0.15s; user-select: none;
+}
+.room-code-box:hover { background: rgba(0,229,255,0.2); }
+.room-code-box small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1px; color: rgba(0,229,255,0.55); margin-top: 4px; }
+
+.text-input {
+  background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 10px; padding: 12px 16px;
+  color: #fff; font-size: 22px; font-weight: 700;
+  text-align: center; width: 100%; outline: none;
+}
+.text-input::placeholder { color: rgba(255,255,255,0.3); font-size: 14px; font-weight: 400; letter-spacing: 1px; }
+.text-input:focus { border-color: rgba(0,229,255,0.5); }
+#join-input { letter-spacing: 3px; text-transform: uppercase; }
+#name-input { margin-bottom: 10px; }
+
+.mp-status { color: rgba(255,255,255,0.5); font-size: 13px; text-align: center; min-height: 18px; }
+#lobby-list { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.lobby-row { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 8px 14px; color: #fff; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.lobby-row .dot { width: 8px; height: 8px; border-radius: 50%; background: #00c875; flex-shrink: 0; }
+.lobby-row.me { border-color: rgba(0,229,255,0.4); color: #00e5ff; }
+#result-banner {
+  position: absolute; top: 40%; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.8); color: #fff; font-size: 24px; font-weight: 900;
+  border-radius: 16px; padding: 14px 36px;
+  display: none; pointer-events: none; white-space: nowrap;
+  border: 2px solid rgba(255,255,255,0.15);
+}
+#countdown-display {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  color: rgba(255,255,255,0.9); font-size: 72px; font-weight: 900;
+  display: none; pointer-events: none; text-shadow: 0 0 40px rgba(0,200,255,0.6);
+}
+#waiting-banner {
+  position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.6); color: rgba(255,255,255,0.65);
+  font-size: 13px; font-weight: 600; border-radius: 10px; padding: 8px 20px;
+  display: none; pointer-events: none; white-space: nowrap;
+}
+/* Skin picker overlay */
+#skin-overlay {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(8,18,30,0.95); pointer-events: all; z-index: 10;
+}
+#skin-overlay h2 { color: #fff; font-size: 24px; font-weight: 900; margin-bottom: 6px; }
+#skin-overlay p { color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 20px; }
+#skin-grid {
+  display: grid; grid-template-columns: repeat(4, 80px); gap: 12px;
+  max-height: 60vh; overflow-y: auto; padding: 4px;
+}
+.skin-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  cursor: pointer; border-radius: 12px; padding: 8px;
+  border: 2px solid transparent; transition: border-color 0.15s, background 0.15s;
+}
+.skin-cell:hover { background: rgba(255,255,255,0.08); }
+.skin-cell.selected { border-color: #00e5ff; background: rgba(0,229,255,0.12); }
+.skin-cell img { width: 60px; height: 60px; object-fit: contain; image-rendering: pixelated; }
+.skin-cell span { color: rgba(255,255,255,0.7); font-size: 11px; font-weight: 600; text-align: center; }
+#skin-close { margin-top: 20px; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="ui">
+  <div id="hud">
+    <div class="hud-box">Round<span id="roundVal">1</span></div>
+    <div class="hud-box" id="phase-label">AIM PHASE</div>
+    <div class="hud-box">Alive<span id="aliveVal">5</span></div>
+  </div>
+  <div id="bottom-ui">
+    <div id="aim-hint">Drag to aim · release to lock in</div>
+    <div id="power-label">Power</div>
+    <div id="power-bar-wrap"><div id="power-bar"></div></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <!-- Top nav bar -->
+  <div id="lobby-nav">
+    <span class="nav-title">KnockOut! 🐧</span>
+    <button class="nav-btn" id="mpBtn" style="display:none"><span class="nav-icon">🌐</span> Multiplayer</button>
+  </div>
+
+  <!-- Lobby body -->
+  <div id="lobby-body">
+
+    <!-- Left panel: character + controls -->
+    <div id="lobby-left" id="lobby-main">
+
+      <!-- Character preview (click to open skin picker) -->
+      <div id="char-preview">
+        <img id="char-preview-img" src="skins/blue.png" alt="Your penguin"/>
+        <div class="customize-hint">click to customize</div>
+      </div>
+
+      <!-- Name input -->
+      <input id="lobby-name-input" id="name-input" maxlength="12" placeholder="Name" autocomplete="off" spellcheck="false"/>
+
+      <!-- Play button -->
+      <button class="btn btn-primary" id="play-btn" id="startBtn">PLAY</button>
+
+      <!-- Mode selector -->
+      <div id="lobby-mode-row">
+        <span class="mode-label">Mode:</span>
+        <select id="gamemode-select">
+          <option value="bots">vs Bots</option>
+          <option value="mp" id="mp-option" style="display:none">Multiplayer</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- MP sub-screens (shown instead of lobby-left when in MP flow) -->
+    <div id="mp-screen">
+      <div id="sub-pick" class="sub-screen">
+        <h2>Multiplayer</h2>
+        <p>Host a room or join a friend's room.</p>
+        <button class="btn btn-green" id="hostBtn" style="width:100%">Create Room</button>
+        <button class="btn btn-secondary" id="joinModeBtn" style="width:100%">Join Room</button>
+        <button class="btn btn-secondary btn-sm" id="mpBackBtn" style="width:100%">← Back</button>
+      </div>
+      <div id="sub-host" class="sub-screen">
+        <h2>Your Room</h2>
+        <div class="room-code-box" id="roomCodeBox">----<small>click to copy</small></div>
+        <p>Share this code. Start once everyone is in!</p>
+        <div id="lobby-list"></div>
+        <div class="mp-status" id="host-status"></div>
+        <button class="btn btn-green" id="startMpBtn" style="width:100%;display:none">Start Game ▶</button>
+        <button class="btn btn-secondary btn-sm" id="hostBackBtn" style="width:100%">← Leave</button>
+      </div>
+      <div id="sub-join" class="sub-screen">
+        <h2>Join Room</h2>
+        <input id="join-input" class="text-input" maxlength="4" placeholder="Enter 4-letter code" autocomplete="off" spellcheck="false"/>
+        <div class="mp-status" id="join-status"></div>
+        <button class="btn btn-green" id="doJoinBtn" style="width:100%">Join →</button>
+        <button class="btn btn-secondary btn-sm" id="joinBackBtn" style="width:100%">← Back</button>
+      </div>
+    </div>
+
+    <div id="btn-row" style="display:none"></div>
+
+  </div>
+</div>
+
+<div id="skin-overlay">
+  <h2>Choose Your Skin</h2>
+  <p>Your skin is visible to other players online.</p>
+  <div id="skin-grid"></div>
+  <button class="btn btn-primary" id="skin-close">Done</button>
+</div>
+<div id="result-banner"></div>
+<div id="countdown-display"></div>
+<div id="waiting-banner">Waiting for other players...</div>
+
+<script src="skins.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script>
+const mpBtn = document.getElementById('mpBtn');
+const nameInput = document.getElementById('lobby-name-input');
+const startBtn = document.getElementById('play-btn');
+
+// Show multiplayer only when served over HTTP/HTTPS and browser is online
+mpBtn.style.display = 'none';
+function checkMpAvailable() {
+  mpBtn.style.display = (location.protocol !== 'file:' && navigator.onLine) ? 'inline-block' : 'none';
+}
+checkMpAvailable();
+window.addEventListener('online', checkMpAvailable);
+window.addEventListener('offline', checkMpAvailable);
+
+// FIX: Wrap localStorage in try/catch to prevent the script from silently crashing on restricted browsers
+try {
+  nameInput.value = localStorage.getItem('ko-name') || '';
+  nameInput.addEventListener('input', e => localStorage.setItem('ko-name', e.target.value));
+} catch (err) {
+  console.warn("Local storage blocked for security reasons. Player names will not save between refreshes.");
+}
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const roundEl = document.getElementById('roundVal');
+const aliveEl = document.getElementById('aliveVal');
+const phaseEl = document.getElementById('phase-label');
+const powerBar = document.getElementById('power-bar');
+const resultBanner = document.getElementById('result-banner');
+const aimHint = document.getElementById('aim-hint');
+const countdownDisplay = document.getElementById('countdown-display');
+const waitingBanner = document.getElementById('waiting-banner');
+const mpScreen = document.getElementById('mp-screen');
+const doJoinBtn = document.getElementById('doJoinBtn');
+
+function resize() {
+  const newPX = window.innerWidth / 2, newPY = window.innerHeight / 2;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if (penguins.length && phase !== 'idle') {
+    const dx = newPX - platformX, dy = newPY - platformY;
+    for (const p of penguins) { p.x += dx; p.y += dy; }
+  }
+  platformX = newPX;
+  platformY = newPY;
+}
+
+const bgImg = new Image(); bgImg.src = 'images/bg.jpg';
+
+// Cache all skin images
+const skinImgs = SKIN_FILES.map(f => { const img = new Image(); img.src = 'skins/' + f; return img; });
+
+let selectedSkin = 0; // index into SKIN_FILES
+try { selectedSkin = parseInt(localStorage.getItem('ko-skin') || '0'); } catch(e){}
+if (selectedSkin >= SKIN_FILES.length) selectedSkin = 0;
+
+function getMyImg() { return skinImgs[selectedSkin]; }
+function getBotImg() { return skinImgs.find(img => img.src.includes('blue.png')) || skinImgs[0]; }
+
+const PENGUIN_R = 26;
+const PLATFORM_R_BASE = 0.30;
+const AIM_TIME = 8;
+const PLAYER_COLORS = ['#00e5ff','#ff5c5c','#ffe44d','#7fff6e','#d97fff','#ff9f4a'];
+const NUM_BOTS = 4;
+
+let round = 1, roundShrink = 0;
+let penguins = [], particles = [];
+let phase = 'idle'; // idle, aim, turning, launching, result
+let aimStart = null, aimEnd = null, isDragging = false;
+let platformX = canvas.width / 2, platformY = canvas.height / 2;
+let aimSecondsLeft = AIM_TIME, aimInterval = null, turnTimeout = null;
+let animRunning = false;
+let lastUpdate = performance.now();
+let logicInterval = null;
+
+// Safe to call resize now that platformX/Y are declared
+resize();
+window.addEventListener('resize', resize);
+// Reset dt clock when tab becomes visible again so physics don't spike
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) lastUpdate = performance.now();
+});
+
+let mpMode = false, isHost = false;
+let myPeerIdx = 0;
+let peer = null, connections = [];
+let lobbyPlayers = [];   
+let pendingAims = {};
+let playerCount = 1;
+let roomCode = '';
+
+function getPlatformR() {
+  return Math.min(canvas.width, canvas.height) * PLATFORM_R_BASE * (1 - roundShrink * 0.05);
+}
+
+function getArrowColor(power, alpha = 1) {
+  let r, g;
+  if (power < 0.5) {
+    r = Math.floor(power * 2 * 255);
+    g = 255;
+  } else {
+    r = 255;
+    g = Math.floor((1 - power) * 2 * 255);
+  }
+  return `rgba(${r}, ${g}, 0, ${alpha})`;
+}
+
+function lerpAngle(a, b, t) {
+  let delta = b - a;
+  while (delta > Math.PI) delta -= Math.PI * 2;
+  while (delta < -Math.PI) delta += Math.PI * 2;
+  return a + delta * t;
+}
+
+function spawnPenguin(i, total, isMe, name, color, skinIdx) {
+  const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
+  const dist = getPlatformR() * 0.52;
+  return {
+    x: platformX + Math.cos(angle) * dist,
+    y: platformY + Math.sin(angle) * dist,
+    vx: 0, vy: 0, alive: true,
+    isPlayer: isMe, isBot: false,
+    color: color || '#888',
+    aimAngle: null, aimPower: 0, launched: false,
+    name: name || `P${i+1}`,
+    facingAngle: angle, spinVel: 0,
+    skinIdx: (skinIdx !== undefined) ? skinIdx : 0  // 0 = blue (default)
+  };
+}
+
+function makeSoloPenguins() {
+  platformX = canvas.width / 2; platformY = canvas.height / 2;
+  const total = NUM_BOTS + 1;
+  penguins = [];
+  for (let i = 0; i < total; i++) {
+    const skinIdx = i === 0 ? selectedSkin : 0; // player = chosen skin, bots = blue
+    const pName = i === 0 ? (nameInput.value.trim() || 'YOU') : `Bot ${i}`;
+    const p = spawnPenguin(i, total, i === 0, pName, PLAYER_COLORS[i === 0 ? 0 : 0], skinIdx);
+    p.isBot = i !== 0;
+    if (i !== 0) p.color = '#888';
+    penguins.push(p);
+  }
+  aliveEl.textContent = total;
+}
+
+function startGame() {
+  mpMode = false; round = 1; roundShrink = 0;
+  // Save name from lobby input so it's used in-game
+  try { if (nameInput.value.trim()) localStorage.setItem('ko-name', nameInput.value.trim()); } catch(e){}
+  overlay.style.display = 'none'; resultBanner.style.display = 'none';
+  startRound();
+}
+
+function startRound() {
+  if (mpMode) { startMpRound(); return; }
+  makeSoloPenguins();
+  roundEl.textContent = round;
+  aimStart = null; aimEnd = null; isDragging = false;
+  phase = 'aim'; particles = [];
+  phaseEl.textContent = 'AIM PHASE';
+  aimHint.textContent = 'Drag to aim · release to lock in';
+  powerBar.style.width = '0%';
+  startAimCountdown();
+  
+  if (!animRunning) {
+    animRunning = true;
+    lastUpdate = performance.now();
+    logicInterval = setInterval(logicLoop, 1000 / 60); 
+    renderLoop();
+  }
+}
+
+function startAimCountdown() {
+  aimSecondsLeft = AIM_TIME;
+  countdownDisplay.style.display = 'block';
+  countdownDisplay.textContent = aimSecondsLeft;
+  clearInterval(aimInterval);
+  clearTimeout(turnTimeout);
+  aimInterval = setInterval(() => {
+    aimSecondsLeft--;
+    countdownDisplay.textContent = aimSecondsLeft;
+    if (aimSecondsLeft <= 0) {
+      clearInterval(aimInterval);
+      countdownDisplay.style.display = 'none';
+      prepareLaunch();
+    }
+  }, 1000);
+}
+
+function renderLoop() {
+  draw(); // always draw — shows bg+platform in lobby too
+  requestAnimationFrame(renderLoop);
+}
+// Start immediately so lobby background renders
+renderLoop();
+
+function logicLoop() {
+  if (phase === 'idle') return;
+  const now = performance.now();
+  let dt = (now - lastUpdate) / 16.666; 
+  lastUpdate = now;
+  if (dt > 10) dt = 10; 
+  update(dt);
+}
+
+function update(dt) {
+  if (phase === 'aim') return;
+  
+  if (phase === 'turning') {
+    for (const p of penguins) {
+      if (p.alive && p.aimAngle !== null) {
+        p.facingAngle = lerpAngle(p.facingAngle, p.aimAngle, 0.15 * dt);
+      }
+    }
+    if (mpMode && isHost) broadcastState();
+    return;
+  }
+  
+  if (phase !== 'launching') return;
+  if (mpMode && !isHost) return; 
+
+  const FRICTION = 0.987, SPIN_FRICTION = 0.82, STOP_THRESH = 0.12;
+  let allStopped = true;
+
+  for (const p of penguins) {
+    if (!p.alive) continue;
+    p.vx *= FRICTION; p.vy *= FRICTION;
+    if (Math.abs(p.vx) < STOP_THRESH) p.vx = 0; else allStopped = false;
+    if (Math.abs(p.vy) < STOP_THRESH) p.vy = 0; else allStopped = false;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.spinVel *= SPIN_FRICTION; p.facingAngle += p.spinVel * dt;
+    const spd = Math.hypot(p.vx, p.vy);
+    if (spd > STOP_THRESH) { p.facingAngle = Math.atan2(p.vy, p.vx); allStopped = false; }
+  }
+
+  for (let i = 0; i < penguins.length; i++) {
+    for (let j = i + 1; j < penguins.length; j++) {
+      const a = penguins[i], b = penguins[j];
+      if (!a.alive || !b.alive) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < PENGUIN_R * 2 && dist > 0.01) {
+        const nx = dx / dist, ny = dy / dist;
+        const relV = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+        if (relV < 0) {
+          a.vx += relV * nx; a.vy += relV * ny;
+          b.vx -= relV * nx; b.vy -= relV * ny;
+          const s = Math.abs(relV) * 0.08;
+          a.spinVel = (Math.random() - 0.5) * s;
+          b.spinVel = (Math.random() - 0.5) * s;
+        }
+        const ov = PENGUIN_R * 2 - dist;
+        a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5;
+        b.x += nx * ov * 0.5; b.y += ny * ov * 0.5;
+        spawnParticles((a.x + b.x) / 2, (a.y + b.y) / 2, '#aef');
+      }
+    }
+  }
+
+  const pr = getPlatformR();
+  for (const p of penguins) {
+    if (!p.alive) continue;
+    if (Math.hypot(p.x - platformX, p.y - platformY) > pr + PENGUIN_R * 0.6) {
+      p.alive = false;
+      spawnParticles(p.x, p.y, p.color, 16);
+    }
+  }
+
+  const alive = penguins.filter(p => p.alive);
+  aliveEl.textContent = alive.length;
+
+  if (mpMode && isHost) broadcastState();
+
+  if (mpMode) {
+    const myP = penguins[myPeerIdx];
+    if (alive.length <= 1) checkRoundEnd(alive);
+    else if (!myP?.alive && alive.length === 0) checkRoundEnd(alive); 
+    else if (allStopped) { broadcastPhase('aim'); resumeAimPhase(); }
+  } else {
+    const playerAlive = alive.find(p => p.isPlayer);
+    const botsAlive = alive.filter(p => p.isBot);
+    if (!playerAlive || botsAlive.length === 0 || alive.length === 0) checkRoundEnd(alive);
+    else if (allStopped) resumeAimPhase();
+  }
+
+  particles = particles.filter(p => p.life > 0);
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.15 * dt; p.life -= 0.022 * dt; }
+}
+
+function resumeAimPhase() {
+  aimStart = null; aimEnd = null; isDragging = false;
+  for (const p of penguins) {
+    if (!p.alive) continue;
+    p.aimAngle = null; p.aimPower = 0; p.launched = false; p.vx = 0; p.vy = 0; p.spinVel = 0;
+  }
+  phase = 'aim'; pendingAims = {};
+  phaseEl.textContent = 'AIM PHASE';
+  aimHint.textContent = 'Drag to aim · release to lock in';
+  powerBar.style.width = '0%';
+  waitingBanner.style.display = 'none';
+  startAimCountdown();
+}
+
+function checkRoundEnd(alive) {
+  if (phase === 'result') return;
+  phase = 'result';
+  clearInterval(aimInterval);
+  clearTimeout(turnTimeout);
+  countdownDisplay.style.display = 'none';
+  waitingBanner.style.display = 'none';
+
+  if (alive.length === 0) {
+    roundShrink = 0; 
+    showResult("Everyone Fell! Arena Reset 🤝", false);
+  } else if (mpMode) {
+    const winner = alive[0];
+    const iWon = winner === penguins[myPeerIdx];
+    showResult(iWon ? 'You Win! 🏆' : `${winner.name} wins! 🏆`, iWon);
+  } else {
+    const playerAlive = alive.find(p => p.isPlayer);
+    if (!playerAlive) showResult('Knocked Out! 💀', false);
+    else { round++; roundShrink++; showResult('All bots eliminated! 🏆', true); }
+  }
+}
+
+function showResult(msg, win) {
+  resultBanner.textContent = msg;
+  resultBanner.style.display = 'block';
+  resultBanner.style.background = win ? 'rgba(0,160,80,0.9)' : 'rgba(180,30,30,0.9)';
+  resultBanner.style.borderColor = win ? 'rgba(0,255,120,0.3)' : 'rgba(255,80,80,0.3)';
+  phaseEl.textContent = win ? 'NEXT ROUND' : 'GAME OVER';
+  
+  setTimeout(() => {
+    resultBanner.style.display = 'none';
+    if (mpMode) {
+      if (isHost) { 
+        if (win) { round++; roundShrink++; }
+        const pList = lobbyPlayers.map(p => ({ name: p.name, index: p.index, skinIdx: p.skinIdx ?? 0 }));
+        connections.forEach(c => { try { c.send({ type: 'newRound', round: round, shrink: roundShrink, players: pList }); } catch(e){} });
+        startMpRound(); 
+      }
+    } else {
+      if (win) startRound();
+      else {
+        overlay.style.display = 'flex';
+        document.getElementById('lobby-left').style.display = 'flex';
+        mpScreen.style.display = 'none';
+        startBtn.textContent = 'PLAY AGAIN';
+        round = 1; roundShrink = 0; phase = 'idle';
+        // loop keeps running so lobby bg stays visible
+      }
+    }
+  }, 2200);
+}
+
+function botAim() {
+  const player = penguins.find(p => p.isPlayer);
+  for (const p of penguins) {
+    if (!p.isBot || !p.alive) continue;
+    const others = penguins.filter(x => x.alive && x !== p);
+    const target = (player?.alive && Math.random() < 0.65) ? player : others[Math.floor(Math.random() * others.length)];
+    if (!target) { p.aimAngle = Math.random() * Math.PI * 2; p.aimPower = 0.4 + Math.random() * 0.4; }
+    else {
+      p.aimAngle = Math.atan2(target.y - p.y, target.x - p.x) + (Math.random() - 0.5) * 0.55;
+      p.aimPower = 0.3 + Math.random() * 0.55;
+    }
+    p.launched = true; 
+  }
+}
+
+function prepareLaunch() {
+  if (phase !== 'aim') return;
+  clearInterval(aimInterval);
+  countdownDisplay.style.display = 'none';
+  waitingBanner.style.display = 'none';
+  
+  if (!mpMode) botAim();
+  
+  for (const p of penguins) {
+    if (!p.alive) continue;
+    if (p.aimAngle === null) { p.aimAngle = Math.random() * Math.PI * 2; p.aimPower = 0.3 + Math.random() * 0.4; }
+  }
+
+  phase = 'turning';
+  phaseEl.textContent = 'READY...';
+  aimHint.textContent = '';
+  
+  if (mpMode && isHost) broadcastState();
+  
+  turnTimeout = setTimeout(() => {
+    launchAll();
+  }, 500); 
+}
+
+function launchAll() {
+  const speed = 10 + round * 0.5;
+  for (const p of penguins) {
+    if (!p.alive) continue;
+    p.vx = Math.cos(p.aimAngle) * p.aimPower * speed;
+    p.vy = Math.sin(p.aimAngle) * p.aimPower * speed;
+    p.spinVel = 0; 
+  }
+  phase = 'launching';
+  phaseEl.textContent = 'LAUNCH!';
+  if (mpMode && isHost) broadcastState();
+}
+
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return e.touches ? { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top }
+                   : { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+function myP() { return mpMode ? penguins[myPeerIdx] : penguins.find(p => p.isPlayer); }
+
+canvas.addEventListener('mousedown', e => { const p = myP(); if (phase === 'aim' && p && !p.launched) { isDragging = true; aimStart = aimEnd = getPos(e); } });
+canvas.addEventListener('mousemove', e => { if (isDragging) aimEnd = getPos(e); });
+canvas.addEventListener('mouseup', () => { if (isDragging && phase === 'aim') { isDragging = false; lockAim(); } });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); const p = myP(); if (phase === 'aim' && p && !p.launched) { isDragging = true; aimStart = aimEnd = getPos(e); } }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); if (isDragging) aimEnd = getPos(e); }, { passive: false });
+canvas.addEventListener('touchend', e => { e.preventDefault(); if (isDragging && phase === 'aim') { isDragging = false; lockAim(); } }, { passive: false });
+
+function lockAim() {
+  const p = myP();
+  if (!p || !aimStart || !aimEnd) return;
+  const dx = aimEnd.x - aimStart.x, dy = aimEnd.y - aimStart.y;
+  p.aimAngle = Math.atan2(dy, dx);
+  p.aimPower = Math.min(Math.hypot(dx, dy) / 90, 1);
+  p.launched = true;
+  powerBar.style.width = (p.aimPower * 100) + '%';
+  powerBar.style.background = getArrowColor(p.aimPower, 1);
+  
+  if (mpMode) {
+    const msg = { type: 'aim', index: myPeerIdx, angle: p.aimAngle, power: p.aimPower };
+    if (isHost) receiveAim(msg); else connections[0]?.send(msg);
+    aimHint.textContent = 'Locked in!';
+    waitingBanner.style.display = 'block';
+  } else {
+    prepareLaunch();
+  }
+}
+
+function spawnParticles(x, y, color, count = 10) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2, s = 2 + Math.random() * 6;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, color, r: 3 + Math.random() * 5 });
+  }
+}
+
+function drawPlatform() {
+  const pr = getPlatformR();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(platformX, platformY, pr, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(180,220,255,0.35)'; ctx.lineWidth = 1;
+  for (let r = pr * 0.2; r < pr; r += pr * 0.15) { ctx.beginPath(); ctx.arc(platformX, platformY, r, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(platformX, platformY, pr, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(140,200,255,0.8)'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+  else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+  // Always draw platform so it shows in the lobby background
+  drawPlatform();
+
+  const pr = getPlatformR();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(platformX, platformY, pr, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(200,230,255,0.4)'; ctx.lineWidth = 1;
+  for (let r = pr * 0.2; r < pr; r += pr * 0.15) { ctx.beginPath(); ctx.arc(platformX, platformY, r, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.beginPath(); ctx.arc(platformX, platformY, pr, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(180,210,255,0.9)'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
+
+  const me = myP();
+  if (phase === 'aim' && me?.alive && isDragging && aimStart && aimEnd) {
+    const dx = aimEnd.x - aimStart.x, dy = aimEnd.y - aimStart.y;
+    const power = Math.min(Math.hypot(dx, dy) / 90, 1);
+    const dynamicColor = getArrowColor(power, 0.5 + power * 0.5);
+    drawArrow(me.x, me.y, Math.atan2(dy, dx), 30 + power * 90, dynamicColor);
+    powerBar.style.width = (power * 100) + '%';
+    powerBar.style.background = getArrowColor(power, 1);
+  }
+  if (phase === 'aim' && me?.alive && me.launched && me.aimAngle !== null) {
+    const dynamicColor = getArrowColor(me.aimPower, 0.85);
+    drawArrow(me.x, me.y, me.aimAngle, 30 + me.aimPower * 90, dynamicColor);
+    powerBar.style.background = getArrowColor(me.aimPower, 1);
+  }
+
+  for (const p of penguins) {
+    ctx.save();
+    if (!p.alive) ctx.globalAlpha = 0.18;
+    const size = PENGUIN_R * 2.3;
+    ctx.translate(p.x, p.y); ctx.rotate(p.facingAngle);
+    const img = skinImgs[p.skinIdx ?? 0];
+    if (img && img.complete && img.naturalWidth) ctx.drawImage(img, -size / 2, -size / 2, size, size);
+    else { ctx.beginPath(); ctx.arc(0, 0, PENGUIN_R, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }
+    ctx.restore();
+
+    if (p.alive) {
+      const isMe2 = mpMode ? p === penguins[myPeerIdx] : p.isPlayer;
+      if (isMe2) {
+        ctx.beginPath(); ctx.arc(p.x, p.y, PENGUIN_R + 5, 0, Math.PI * 2);
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2.5; ctx.stroke();
+      }
+      ctx.fillStyle = isMe2 ? p.color : 'rgba(255,255,255,0.55)';
+      ctx.font = 'bold 10px Segoe UI,sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(p.name, p.x, p.y - PENGUIN_R - 6);
+    }
+  }
+
+  for (const p of particles) {
+    ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawArrow(x, y, angle, len, color) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.setLineDash([7, 5]);
+  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, 0); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.moveTo(len, 0); ctx.lineTo(len - 14, 7); ctx.lineTo(len - 14, -7); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function showSubScreen(id) {
+  document.getElementById('lobby-left').style.display = 'none';
+  mpScreen.style.display = 'flex';
+  ['sub-pick','sub-host','sub-join'].forEach(s => document.getElementById(s).style.display = 'none');
+  document.getElementById(id).style.display = 'flex';
+}
+
+function hideMpScreens() {
+  mpScreen.style.display = 'none';
+  document.getElementById('lobby-left').style.display = 'flex';
+  doJoinBtn.disabled = false;
+}
+
+document.getElementById('mpBackBtn').addEventListener('click', hideMpScreens);
+mpBtn.addEventListener('click', () => showSubScreen('sub-pick'));
+mpBtn.addEventListener('click', () => showSubScreen('sub-pick'));
+document.getElementById('joinModeBtn').addEventListener('click', () => showSubScreen('sub-join'));
+document.getElementById('hostBackBtn').addEventListener('click', () => { destroyPeer(); hideMpScreens(); });
+document.getElementById('joinBackBtn').addEventListener('click', () => { destroyPeer(); hideMpScreens(); });
+
+const roomCodeBox = document.getElementById('roomCodeBox');
+const hostStatus = document.getElementById('host-status');
+const lobbyList = document.getElementById('lobby-list');
+const startMpBtn = document.getElementById('startMpBtn');
+const joinStatus = document.getElementById('join-status');
+
+function genCode() { return Math.random().toString(36).substring(2, 6).toUpperCase(); }
+
+document.getElementById('hostBtn').addEventListener('click', () => {
+  showSubScreen('sub-host');
+  roomCode = genCode();
+  roomCodeBox.childNodes[0].nodeValue = roomCode;
+  
+  const myName = nameInput.value.trim() || 'Host';
+  hostStatus.textContent = 'Connecting...';
+  peer = new Peer('ko-' + roomCode, { debug: 0 });
+  
+  peer.on('open', () => {
+    isHost = true; myPeerIdx = 0;
+    lobbyPlayers = [{ id: peer.id, name: myName, index: 0, skinIdx: selectedSkin }];
+    hostStatus.textContent = 'Waiting for players...';
+    renderLobby();
+  });
+  
+  peer.on('connection', conn => {
+    conn.on('data', d => {
+      if (d.type === 'setName') {
+        const idx = lobbyPlayers.length;
+        lobbyPlayers.push({ id: conn.peer, name: d.name, index: idx, conn, skinIdx: d.skinIdx ?? 0 });
+        connections.push(conn);
+        conn.send({ type: 'welcome', index: idx, name: d.name, skinIdx: d.skinIdx ?? 0 });
+        broadcastLobby();
+        renderLobby();
+        if (lobbyPlayers.length >= 2) startMpBtn.style.display = 'block';
+      } else {
+        handleMsg(d, conn);
+      }
+    });
+    
+    conn.on('close', () => {
+      const pData = lobbyPlayers.find(p => p.id === conn.peer);
+      lobbyPlayers = lobbyPlayers.filter(p => p.id !== conn.peer);
+      connections = connections.filter(c => c !== conn);
+
+      if (pData) {
+        // Mark that penguin as dead in active game
+        if (penguins[pData.index]) {
+          penguins[pData.index].alive = false;
+          spawnParticles(penguins[pData.index].x, penguins[pData.index].y, '#ff5c5c', 14);
+        }
+        if (phase !== 'idle' && phase !== 'result') {
+          // Only 1 human left (host alone) — end game
+          if (connections.length === 0) {
+            showResult(`${pData.name} disconnected — you win! 🏆`, true);
+            return;
+          }
+          // Check if game should resolve now
+          broadcastState();
+          const alive = penguins.filter(p => p.alive);
+          if (alive.length <= 1) { checkRoundEnd(alive); return; }
+        }
+      }
+      broadcastLobby(); renderLobby();
+      if (lobbyPlayers.length < 2) startMpBtn.style.display = 'none';
+    });
+  });
+  peer.on('error', e => hostStatus.textContent = 'Error: ' + e.type);
+});
+
+roomCodeBox.addEventListener('click', () => {
+  navigator.clipboard?.writeText(roomCode).then(() => {
+    roomCodeBox.childNodes[0].nodeValue = 'COPIED!';
+    setTimeout(() => roomCodeBox.childNodes[0].nodeValue = roomCode, 1400);
+  });
+});
+
+function renderLobby() {
+  lobbyList.innerHTML = '';
+  lobbyPlayers.forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'lobby-row' + (i === 0 ? ' me' : '');
+    d.innerHTML = `<div class="dot" style="background:${PLAYER_COLORS[i % PLAYER_COLORS.length]}"></div>${p.name}`;
+    lobbyList.appendChild(d);
+  });
+  hostStatus.textContent = `${lobbyPlayers.length} player${lobbyPlayers.length !== 1 ? 's' : ''} in lobby`;
+}
+
+function broadcastLobby() {
+  const msg = { type: 'lobby', players: lobbyPlayers.map(p => ({ name: p.name, index: p.index })) };
+  connections.forEach(c => { try { c.send(msg); } catch(e){} });
+}
+
+startMpBtn.addEventListener('click', () => {
+  if (lobbyPlayers.length < 2) { hostStatus.textContent = 'Need at least 2 players!'; return; }
+  playerCount = lobbyPlayers.length;
+  const players = lobbyPlayers.map(p => ({ name: p.name, index: p.index, skinIdx: p.skinIdx ?? 0 }));
+  connections.forEach(c => { try { c.send({ type: 'gameStart', playerCount, players }); } catch(e){} });
+  beginMpGame(players);
+});
+
+doJoinBtn.addEventListener('click', () => {
+  const code = document.getElementById('join-input').value.trim().toUpperCase();
+  const myName = nameInput.value.trim() || 'Player';
+  
+  if (code.length !== 4) { joinStatus.textContent = 'Enter a 4-letter code!'; return; }
+  
+  doJoinBtn.disabled = true;
+  joinStatus.textContent = 'Connecting...';
+  
+  peer = new Peer(undefined, { debug: 0 });
+  peer.on('open', () => {
+    const conn = peer.connect('ko-' + code, { reliable: true });
+    connections = [conn];
+    conn.on('open', () => {
+      conn.send({ type: 'setName', name: myName, skinIdx: selectedSkin });
+      joinStatus.textContent = 'Connected! Waiting for host to start...';
+    });
+    conn.on('data', d => handleMsg(d, conn));
+    conn.on('close', () => {
+      doJoinBtn.disabled = false;
+      if (mpMode && phase !== 'idle' && phase !== 'result') {
+        // Host disconnected during game
+        showResult('Host disconnected! 🔌', false);
+        setTimeout(() => destroyPeer(), 2500);
+      } else {
+        joinStatus.textContent = 'Disconnected from host.';
+        destroyPeer();
+      }
+    });
+    conn.on('error', () => { joinStatus.textContent = 'Connection error.'; doJoinBtn.disabled = false; });
+  });
+  peer.on('error', e => { joinStatus.textContent = 'Could not connect: ' + e.type; doJoinBtn.disabled = false; });
+});
+
+function handleMsg(msg, conn) {
+  if (msg.type === 'welcome') {
+    myPeerIdx = msg.index; isHost = false;
+    joinStatus.textContent = `Joined as ${msg.name}. Waiting for host to start...`;
+  }
+  if (msg.type === 'lobby') {
+    joinStatus.textContent = `${msg.players.length} player(s) in lobby.`;
+  }
+  if (msg.type === 'gameStart') {
+    playerCount = msg.playerCount;
+    beginMpGame(msg.players);
+  }
+  if (msg.type === 'state' && !isHost) applyHostState(msg);
+  if (msg.type === 'phase' && !isHost) handlePhaseMsg(msg);
+  if (msg.type === 'aim' && isHost) receiveAim(msg);
+  if (msg.type === 'newRound' && !isHost) { round = msg.round; roundShrink = msg.shrink; startMpRound(msg.players); }
+}
+
+function beginMpGame(players) {
+  mpMode = true; round = 1; roundShrink = 0;
+  overlay.style.display = 'none'; resultBanner.style.display = 'none';
+  startMpRound(players);
+  
+  // loop already running from page load
+}
+
+function startMpRound(players) {
+  platformX = canvas.width / 2; platformY = canvas.height / 2;
+  const pList = players || lobbyPlayers.map((p, i) => ({ name: p.name, index: i }));
+  playerCount = pList.length;
+  penguins = [];
+  
+  for (let i = 0; i < playerCount; i++) {
+    const info = pList[i] || { name: `P${i+1}`, index: i };
+    const skinIdx = (i === myPeerIdx) ? selectedSkin : (info.skinIdx ?? 0);
+    const p = spawnPenguin(i, playerCount, i === myPeerIdx, info.name, PLAYER_COLORS[i % PLAYER_COLORS.length], skinIdx);
+    penguins.push(p);
+  }
+  
+  aliveEl.textContent = playerCount;
+  roundEl.textContent = round;
+  aimStart = null; aimEnd = null; isDragging = false; phase = 'aim'; particles = [];
+  pendingAims = {};
+  phaseEl.textContent = 'AIM PHASE';
+  aimHint.textContent = 'Drag to aim · release to lock in';
+  powerBar.style.width = '0%';
+  powerBar.style.background = getArrowColor(0, 1);
+  waitingBanner.style.display = 'none';
+  if (isHost) { broadcastState(); }
+  startAimCountdown();
+}
+
+function receiveAim(msg) {
+  pendingAims[msg.index] = { angle: msg.angle, power: msg.power };
+  const p = penguins[msg.index];
+  if (p) { p.aimAngle = msg.angle; p.aimPower = msg.power; p.launched = true; }
+  
+  const aliveIdxs = penguins.map((p, i) => p.alive ? i : -1).filter(i => i >= 0);
+  const allIn = aliveIdxs.every(i => pendingAims[i] !== undefined);
+  if (allIn) {
+    prepareLaunch(); 
+  }
+}
+
+function broadcastState() {
+  const msg = {
+    type: 'state', phase,
+    penguins: penguins.map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, alive: p.alive, facingAngle: p.facingAngle, spinVel: p.spinVel, skinIdx: p.skinIdx ?? 0 }))
+  };
+  connections.forEach(c => { try { c.send(msg); } catch(e){} });
+}
+
+function broadcastPhase(phaseType) {
+  connections.forEach(c => { try { c.send({ type: 'phase', phase: phaseType, round, roundShrink }); } catch(e){} });
+}
+
+function applyHostState(msg) {
+  msg.penguins.forEach((s, i) => {
+    if (!penguins[i]) return;
+    Object.assign(penguins[i], { x: s.x, y: s.y, vx: s.vx, vy: s.vy, alive: s.alive, facingAngle: s.facingAngle, spinVel: s.spinVel, skinIdx: s.skinIdx ?? penguins[i].skinIdx ?? 0 });
+  });
+  if (msg.phase === 'turning' && phase !== 'turning') { phase = 'turning'; phaseEl.textContent = 'READY...'; aimHint.textContent = ''; waitingBanner.style.display = 'none'; }
+  if (msg.phase === 'launching' && phase !== 'launching') { phase = 'launching'; phaseEl.textContent = 'LAUNCH!'; aimHint.textContent = ''; waitingBanner.style.display = 'none'; }
+  aliveEl.textContent = penguins.filter(p => p.alive).length;
+  
+  const alive = penguins.filter(p => p.alive);
+  const myPenguin = penguins[myPeerIdx];
+  if (alive.length <= 1) checkRoundEnd(alive);
+  else if (!myPenguin?.alive && alive.length === 0) checkRoundEnd(alive);
+}
+
+function handlePhaseMsg(msg) {
+  if (msg.phase === 'aim') resumeAimPhase();
+}
+
+function destroyPeer() {
+  clearInterval(aimInterval);
+  clearInterval(logicInterval);
+  clearTimeout(turnTimeout);
+  animRunning = false;
+  if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+  connections = []; lobbyPlayers = []; pendingAims = {};
+  isHost = false; mpMode = false; phase = 'idle';
+  doJoinBtn.disabled = false;
+  overlay.style.display = 'flex';
+  hideMpScreens();
+}
+
+// ── Skin picker ──────────────────────────────────────────────────────────
+const skinOverlay = document.getElementById('skin-overlay');
+const skinGrid = document.getElementById('skin-grid');
+function buildSkinGrid() {
+  skinGrid.innerHTML = '';
+  SKIN_FILES.forEach((file, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'skin-cell' + (i === selectedSkin ? ' selected' : '');
+    const img = document.createElement('img');
+    img.src = 'skins/' + file;
+    img.alt = SKIN_NAMES[i] || file;
+    const label = document.createElement('span');
+    label.textContent = SKIN_NAMES[i] || file.replace(/\.[^.]+$/, '');
+    cell.appendChild(img);
+    cell.appendChild(label);
+    cell.addEventListener('click', () => {
+      selectedSkin = i;
+      try { localStorage.setItem('ko-skin', i); } catch(e) {}
+      updateCharPreview();
+      skinGrid.querySelectorAll('.skin-cell').forEach((c, j) => {
+        c.classList.toggle('selected', j === i);
+      });
+    });
+    skinGrid.appendChild(cell);
+  });
+}
+
+// skin picker opened via char-preview click only
+document.getElementById('skin-close').addEventListener('click', () => {
+  skinOverlay.style.display = 'none';
+});
+
+// ── Play button — routes to bots or MP based on dropdown ────────────────
+startBtn.addEventListener('click', () => {
+  const mode = document.getElementById('gamemode-select')?.value || 'bots';
+  if (mode === 'mp') {
+    showSubScreen('sub-pick');
+  } else {
+    // Grab name from lobby input
+    startGame();
+  }
+});
+
+// ── Character preview — update when skin changes ──────────────────────────
+function updateCharPreview() {
+  const img = document.getElementById('char-preview-img');
+  if (img) img.src = 'skins/' + SKIN_FILES[selectedSkin];
+}
+updateCharPreview();
+
+// Click character to open skin picker
+document.getElementById('char-preview')?.addEventListener('click', () => {
+  buildSkinGrid();
+  skinOverlay.style.display = 'flex';
+});
+// skinBtn removed from nav but keep a hidden reference for skin picker
+
+
+// Show/hide MP option in dropdown based on connectivity
+function updateModeDropdown() {
+  const opt = document.getElementById('mp-option');
+  if (opt) opt.style.display = (location.protocol !== 'file:' && navigator.onLine) ? '' : 'none';
+}
+updateModeDropdown();
+window.addEventListener('online', updateModeDropdown);
+window.addEventListener('offline', updateModeDropdown);
+
+// Start render loop immediately so bg+arena show in lobby
+animRunning = true;
+lastUpdate = performance.now();
+logicInterval = setInterval(logicLoop, 1000 / 60);
+</script>
+</body>
+</html>
