@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>KnockOut! 🐧</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -14,6 +14,10 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 #gameCanvas { display: block; }
+#gameCanvas { touch-action: none; width: 100%; height: 100%; }
+#ui, #overlay { -webkit-user-select: none; user-select: none; }
+html, body { -webkit-text-size-adjust: 100%; touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0); }
+body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 #hud { display: flex; justify-content: space-between; padding: 12px 18px; gap: 10px; }
 .hud-box {
@@ -225,9 +229,53 @@ body {
 .setting-row input[type=range] { padding: 0; height: 4px; accent-color: #00b4d8; }
 .setting-val { color: #00e5ff; font-size: 13px; font-weight: 800; }
 
+
+/* ── MP room settings (inside host lobby) ────────────────────── */
+#mp-room-settings {
+  width: 100%; background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#mp-room-settings .mp-settings-title {
+  color: rgba(255,255,255,0.5); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;
+}
+.mp-setting-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.mp-setting-row label {
+  color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.mp-setting-row select {
+  background: #1a2a3a; border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px; padding: 4px 8px; color: #fff;
+  font-size: 12px; font-weight: 700; outline: none; cursor: pointer;
+  min-width: 110px;
+}
+.mp-setting-row select option { background: #1a2a3a; color: #fff; }
+/* Read-only settings summary shown to joining clients */
+#mp-join-settings {
+  width: 100%; background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 8px 12px;
+  display: none; flex-direction: column; gap: 4px;
+}
+#mp-join-settings .mp-settings-title {
+  color: rgba(255,255,255,0.4); font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;
+}
+.join-setting-line {
+  display: flex; justify-content: space-between;
+  color: rgba(255,255,255,0.65); font-size: 12px; font-weight: 600;
+}
+.join-setting-line span { color: #00e5ff; }
+
 /* ── Mobile support ──────────────────────────────────────────── */
 @media (max-width: 600px) {
   #lobby-left { width: 180px; }
+  .btn { padding: 12px 20px; font-size: 16px; }
+  .nav-btn { padding: 10px 12px; }
   #char-preview img { width: 100px; height: 100px; }
   #play-btn { font-size: 18px; padding: 12px; }
   #lobby-name-input { font-size: 15px; padding: 8px 12px; }
@@ -335,13 +383,48 @@ body {
         <p>Share this code. Start once everyone is in!</p>
         <div id="lobby-list"></div>
         <div class="mp-status" id="host-status"></div>
-        <button class="btn btn-green" id="startMpBtn" style="width:100%;display:none">Start Game ▶</button>
+        <div id="mp-room-settings">
+          <div class="mp-settings-title">Room Settings</div>
+          <div class="mp-setting-row">
+            <label>Rounds</label>
+            <select id="mp-set-rounds">
+              <option value="3">3 rounds</option>
+              <option value="5" selected>5 rounds</option>
+              <option value="10">10 rounds</option>
+              <option value="0">Infinite</option>
+            </select>
+          </div>
+          <div class="mp-setting-row">
+            <label>Platform shrink</label>
+            <select id="mp-set-shrink">
+              <option value="0">None</option>
+              <option value="0.05" selected>Normal</option>
+              <option value="0.1">Fast</option>
+            </select>
+          </div>
+          <div class="mp-setting-row">
+            <label>Aim time</label>
+            <select id="mp-set-aimtime">
+              <option value="5">5 sec</option>
+              <option value="8" selected>8 sec</option>
+              <option value="12">12 sec</option>
+              <option value="15">15 sec</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-green" id="startMpBtn" style="width:100%;display:none">Start Game</button>
         <button class="btn btn-secondary btn-sm" id="hostBackBtn" style="width:100%">← Leave</button>
       </div>
       <div id="sub-join" class="sub-screen">
         <h2>Join Room</h2>
         <input id="join-input" class="text-input" maxlength="4" placeholder="Enter 4-letter code" autocomplete="off" spellcheck="false"/>
         <div class="mp-status" id="join-status"></div>
+        <div id="mp-join-settings">
+          <div class="mp-settings-title">Room Settings</div>
+          <div class="join-setting-line">Rounds <span id="js-rounds">-</span></div>
+          <div class="join-setting-line">Shrink <span id="js-shrink">-</span></div>
+          <div class="join-setting-line">Aim time <span id="js-aimtime">-</span></div>
+        </div>
         <button class="btn btn-green" id="doJoinBtn" style="width:100%">Join →</button>
         <button class="btn btn-secondary btn-sm" id="joinBackBtn" style="width:100%">← Back</button>
       </div>
@@ -446,9 +529,15 @@ const mpScreen = document.getElementById('mp-screen');
 const doJoinBtn = document.getElementById('doJoinBtn');
 
 function resize() {
-  const newPX = window.innerWidth / 2, newPY = window.innerHeight / 2;
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const dpr = window.devicePixelRatio || 1;
+  const navH = document.getElementById('lobby-nav')?.offsetHeight || 56;
+  const newPX = window.innerWidth / 2;
+  const newPY = navH + (window.innerHeight - navH) / 2; // center in usable area below nav
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (penguins.length && phase !== 'idle') {
     const dx = newPX - platformX, dy = newPY - platformY;
     for (const p of penguins) { p.x += dx; p.y += dy; }
@@ -470,9 +559,26 @@ if (selectedSkin >= SKIN_FILES.length) selectedSkin = 0;
 function getMyImg() { return skinImgs[selectedSkin]; }
 function getBotImg() { return skinImgs.find(img => img.src.includes('blue.png')) || skinImgs[0]; }
 
-const PENGUIN_R = 26;
+const PENGUIN_R_BASE = 26;
 const PLATFORM_R_BASE = 0.30;
+function getPenguinR() {
+  // Scale penguin relative to platform so they always fit properly
+  const pr = getPlatformR();
+  const r = Math.round(pr * 0.115);
+  return Math.max(14, Math.min(30, r));
+}
+function getPlatformBase() {
+  // Use the smaller of width and usable height (subtract nav bar)
+  const navH = 56;
+  const usableH = window.innerHeight - navH;
+  const usableW = window.innerWidth;
+  const minDim = Math.min(usableW, usableH);
+  // Target: platform radius = ~44% of the usable short side, clamped between 130px and 320px
+  const targetR = Math.max(130, Math.min(320, minDim * 0.44));
+  return targetR / Math.min(window.innerWidth, window.innerHeight);
+}
 const AIM_TIME = 8;
+let AIM_TIME_MP = 8; // overridden by host settings in MP
 const PLAYER_COLORS = ['#00e5ff','#ff5c5c','#ffe44d','#7fff6e','#d97fff','#ff9f4a'];
 const NUM_BOTS = 4;
 
@@ -504,7 +610,7 @@ let playerCount = 1;
 let roomCode = '';
 
 function getPlatformR() {
-  return Math.min(canvas.width, canvas.height) * PLATFORM_R_BASE * (1 - roundShrink * platformShrinkRate);
+  return Math.min(window.innerWidth, window.innerHeight) * getPlatformBase() * (1 - roundShrink * platformShrinkRate);
 }
 
 function getArrowColor(power, alpha = 1) {
@@ -543,7 +649,9 @@ function spawnPenguin(i, total, isMe, name, color, skinIdx) {
 }
 
 function makeSoloPenguins() {
-  platformX = canvas.width / 2; platformY = canvas.height / 2;
+  const _navH = document.getElementById('lobby-nav')?.offsetHeight || 56;
+  platformX = window.innerWidth / 2;
+  platformY = _navH + (window.innerHeight - _navH) / 2;
   const total = numBots + 1;
   penguins = [];
   for (let i = 0; i < total; i++) {
@@ -558,24 +666,155 @@ function makeSoloPenguins() {
 }
 
 
-// ── Web Worker tick (runs at full speed even when tab is hidden) ──────────
-const WORKER_SRC = `
-  let iv = null;
+// ── Physics loop: runs in a Web Worker so it never throttles when tab is hidden ──
+// The worker runs the full physics simulation. Main thread only renders + handles input.
+const PHYSICS_WORKER_SRC = `
+  const FRICTION = 0.987, SPIN_FRICTION = 0.82, STOP_THRESH = 0.12;
+  let iv = null, state = null, lastT = Date.now();
+
+  function physicsStep() {
+    if (!state || state.phase !== 'launching') return null;
+    const now = Date.now();
+    let dt = Math.min((now - lastT) / 16.666, 4);
+    lastT = now;
+
+    const penguins = state.penguins;
+    const PENGUIN_R = state.PENGUIN_R;
+    let allStopped = true;
+
+    for (const p of penguins) {
+      if (!p.alive) continue;
+      p.vx *= FRICTION; p.vy *= FRICTION;
+      if (Math.abs(p.vx) < STOP_THRESH) p.vx = 0; else allStopped = false;
+      if (Math.abs(p.vy) < STOP_THRESH) p.vy = 0; else allStopped = false;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.spinVel *= SPIN_FRICTION; p.facingAngle += p.spinVel * dt;
+      const spd = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+      if (spd > STOP_THRESH) { p.facingAngle = Math.atan2(p.vy, p.vx); allStopped = false; }
+    }
+
+    // Collisions
+    for (let i = 0; i < penguins.length; i++) {
+      for (let j = i+1; j < penguins.length; j++) {
+        const a = penguins[i], b = penguins[j];
+        if (!a.alive || !b.alive) continue;
+        const dx = b.x-a.x, dy = b.y-a.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist < PENGUIN_R*2 && dist > 0.01) {
+          const nx = dx/dist, ny = dy/dist;
+          const relV = (b.vx-a.vx)*nx + (b.vy-a.vy)*ny;
+          if (relV < 0) {
+            const impulse = relV * 1.4;
+            a.vx += impulse*nx*0.20; a.vy += impulse*ny*0.20;
+            b.vx -= impulse*nx*0.80; b.vy -= impulse*ny*0.80;
+            const s = Math.abs(relV)*0.07;
+            a.spinVel = (Math.random()-0.5)*s*0.3;
+            b.spinVel = (Math.random()-0.5)*s;
+          }
+          const ov = PENGUIN_R*2 - dist + 1;
+          a.x -= nx*ov*0.5; a.y -= ny*ov*0.5;
+          b.x += nx*ov*0.5; b.y += ny*ov*0.5;
+        }
+      }
+    }
+
+    // Fall off
+    for (const p of penguins) {
+      if (!p.alive) continue;
+      const dx = p.x - state.platformX, dy = p.y - state.platformY;
+      if (Math.sqrt(dx*dx+dy*dy) > state.platformR + PENGUIN_R*0.6) p.alive = false;
+    }
+
+    state.allStopped = allStopped;
+    return state;
+  }
+
   self.onmessage = function(e) {
-    if (e.data === 'start') { if (!iv) iv = setInterval(() => self.postMessage('tick'), 16); }
-    if (e.data === 'stop')  { clearInterval(iv); iv = null; }
+    if (e.data.type === 'start') {
+      lastT = Date.now();
+      iv = setInterval(() => {
+        const result = physicsStep();
+        if (result) self.postMessage({ type: 'state', state: result });
+      }, 16);
+    }
+    if (e.data.type === 'stop') { clearInterval(iv); iv = null; state = null; }
+    if (e.data.type === 'setState') { state = e.data.state; lastT = Date.now(); }
   };
 `;
-let logicWorker = null;
+
+let physicsWorker = null;
+let workerStateBuffer = null; // latest physics result from worker
+
 function startLogicWorker() {
-  if (logicWorker) return;
-  const blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
-  logicWorker = new Worker(URL.createObjectURL(blob));
-  logicWorker.onmessage = () => logicLoop();
-  logicWorker.postMessage('start');
+  if (physicsWorker) return;
+  const blob = new Blob([PHYSICS_WORKER_SRC], { type: 'application/javascript' });
+  physicsWorker = new Worker(URL.createObjectURL(blob));
+  physicsWorker.onmessage = (e) => {
+    if (e.data.type === 'state') {
+      workerStateBuffer = e.data.state;
+      // Apply result back to main thread penguins
+      applyWorkerState(e.data.state);
+    }
+  };
 }
+
 function stopLogicWorker() {
-  if (logicWorker) { logicWorker.postMessage('stop'); logicWorker.terminate(); logicWorker = null; }
+  if (physicsWorker) {
+    physicsWorker.postMessage({ type: 'stop' });
+    physicsWorker.terminate();
+    physicsWorker = null;
+  }
+  workerStateBuffer = null;
+}
+
+function sendStateToWorker() {
+  if (!physicsWorker) return;
+  const pr = getPlatformR();
+  const PENGUIN_R = getPenguinR();
+  physicsWorker.postMessage({
+    type: 'setState',
+    state: {
+      phase,
+      penguins: penguins.map(p => ({ ...p })),
+      platformX, platformY, platformR: pr, PENGUIN_R
+    }
+  });
+}
+
+function applyWorkerState(ws) {
+  if (!ws || !ws.penguins) return;
+  // If round already ended, ignore stale worker messages
+  if (phase === 'result' || phase === 'idle' || phase === 'aim') return;
+  // Sync positions/velocities from worker back to main thread
+  ws.penguins.forEach((wp, i) => {
+    if (!penguins[i]) return;
+    penguins[i].x = wp.x; penguins[i].y = wp.y;
+    penguins[i].vx = wp.vx; penguins[i].vy = wp.vy;
+    penguins[i].alive = wp.alive;
+    penguins[i].facingAngle = wp.facingAngle;
+    penguins[i].spinVel = wp.spinVel;
+  });
+
+  const alive = penguins.filter(p => p.alive);
+  aliveEl.textContent = alive.length;
+
+  if (mpMode && isHost) {
+    broadcastState();
+    if (alive.length <= 1) checkRoundEnd(alive);
+    else if (ws.allStopped) { broadcastPhase('aim'); resumeAimPhase(); }
+  } else if (!mpMode) {
+    const playerAlive = alive.find(p => p.isPlayer);
+    const botsAlive = alive.filter(p => p.isBot);
+    if (!playerAlive || botsAlive.length === 0 || alive.length === 0) checkRoundEnd(alive);
+    else if (ws.allStopped) resumeAimPhase();
+    // Spawn particles for newly dead penguins
+    ws.penguins.forEach((wp, i) => {
+      if (!wp.alive && penguins[i] && penguins[i]._wasAlive) {
+        spawnParticles(wp.x, wp.y, penguins[i].color, 16);
+      }
+      if (penguins[i]) penguins[i]._wasAlive = penguins[i].alive;
+    });
+  }
 }
 
 function startGame() {
@@ -597,16 +836,16 @@ function startRound() {
   powerBar.style.width = '0%';
   startAimCountdown();
   
-  if (!animRunning) {
-    animRunning = true;
-    lastUpdate = performance.now();
-    startLogicWorker(); // uses Web Worker so it runs even when tab is hidden 
-    renderLoop();
-  }
+  // Always restart the main interval (handles turning/aim phases)
+  stopMainInterval();
+  animRunning = true;
+  lastUpdate = performance.now();
+  startMainInterval();
+  // renderLoop is already running from page load — don't start a second one
 }
 
 function startAimCountdown() {
-  aimSecondsLeft = AIM_TIME;
+  aimSecondsLeft = (mpMode ? AIM_TIME_MP : AIM_TIME);
   countdownDisplay.style.display = 'block';
   countdownDisplay.textContent = aimSecondsLeft;
   clearInterval(aimInterval);
@@ -631,17 +870,11 @@ document.getElementById('bottom-ui').classList.add('hidden');
 renderLoop();
 
 function logicLoop() {
-  if (phase === 'idle') return;
+  // Aim countdown and turning phase still run on main thread (not physics)
+  if (phase === 'idle' || phase === 'launching') return;
   const now = performance.now();
-  let dt = (now - lastUpdate) / 16.666; 
+  let dt = Math.min((now - lastUpdate) / 16.666, 4);
   lastUpdate = now;
-  if (dt > 10) dt = 10; 
-  update(dt);
-}
-
-function update(dt) {
-  if (phase === 'aim') return;
-  
   if (phase === 'turning') {
     for (const p of penguins) {
       if (p.alive && p.aimAngle !== null) {
@@ -649,85 +882,36 @@ function update(dt) {
       }
     }
     if (mpMode && isHost) broadcastState();
-    return;
   }
-  
-  if (phase !== 'launching') return;
-  if (mpMode && !isHost) return; 
-
-  const FRICTION = 0.987, SPIN_FRICTION = 0.82, STOP_THRESH = 0.12;
-  let allStopped = true;
-
-  for (const p of penguins) {
-    if (!p.alive) continue;
-    p.vx *= FRICTION; p.vy *= FRICTION;
-    if (Math.abs(p.vx) < STOP_THRESH) p.vx = 0; else allStopped = false;
-    if (Math.abs(p.vy) < STOP_THRESH) p.vy = 0; else allStopped = false;
-    p.x += p.vx * dt; p.y += p.vy * dt;
-    p.spinVel *= SPIN_FRICTION; p.facingAngle += p.spinVel * dt;
-    const spd = Math.hypot(p.vx, p.vy);
-    if (spd > STOP_THRESH) { p.facingAngle = Math.atan2(p.vy, p.vx); allStopped = false; }
-  }
-
-  for (let i = 0; i < penguins.length; i++) {
-    for (let j = i + 1; j < penguins.length; j++) {
-      const a = penguins[i], b = penguins[j];
-      if (!a.alive || !b.alive) continue;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist < PENGUIN_R * 2 && dist > 0.01) {
-        const nx = dx / dist, ny = dy / dist;
-        const relV = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-        if (relV < 0) {
-          // Elastic collision: full impulse exchange so neither passes through
-          // Asymmetric feel: b (hit) gets 80%, a (hitter) gets 20% bounce-back
-          const impulse = relV * 1.4; // slight boost so hits feel impactful
-          a.vx += impulse * nx * 0.20; a.vy += impulse * ny * 0.20;
-          b.vx -= impulse * nx * 0.80; b.vy -= impulse * ny * 0.80;
-          const s = Math.abs(relV) * 0.07;
-          a.spinVel = (Math.random() - 0.5) * s * 0.3;
-          b.spinVel = (Math.random() - 0.5) * s;
-        }
-        // Push apart fully so they never overlap/tunnel
-        const ov = PENGUIN_R * 2 - dist + 1;
-        a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5;
-        b.x += nx * ov * 0.5; b.y += ny * ov * 0.5;
-        spawnParticles((a.x + b.x) / 2, (a.y + b.y) / 2, '#aef');
-      }
-    }
-  }
-
-  const pr = getPlatformR();
-  for (const p of penguins) {
-    if (!p.alive) continue;
-    if (Math.hypot(p.x - platformX, p.y - platformY) > pr + PENGUIN_R * 0.6) {
-      p.alive = false;
-      spawnParticles(p.x, p.y, p.color, 16);
-    }
-  }
-
-  const alive = penguins.filter(p => p.alive);
-  aliveEl.textContent = alive.length;
-
-  if (mpMode && isHost) broadcastState();
-
-  if (mpMode) {
-    const myP = penguins[myPeerIdx];
-    if (alive.length <= 1) checkRoundEnd(alive);
-    else if (!myP?.alive && alive.length === 0) checkRoundEnd(alive); 
-    else if (allStopped) { broadcastPhase('aim'); resumeAimPhase(); }
-  } else {
-    const playerAlive = alive.find(p => p.isPlayer);
-    const botsAlive = alive.filter(p => p.isBot);
-    if (!playerAlive || botsAlive.length === 0 || alive.length === 0) checkRoundEnd(alive);
-    else if (allStopped) resumeAimPhase();
-  }
-
+  // Particles update on main thread too (visual only)
   particles = particles.filter(p => p.life > 0);
   for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 0.15 * dt; p.life -= 0.022 * dt; }
 }
 
+// Fallback interval for non-launching phases (aim countdown, turning)
+let mainInterval = null;
+function startMainInterval() {
+  if (mainInterval) return;
+  lastUpdate = performance.now();
+  mainInterval = setInterval(logicLoop, 16);
+}
+function stopMainInterval() {
+  if (mainInterval) { clearInterval(mainInterval); mainInterval = null; }
+}
+
+function update(dt) {
+  // Physics are now handled by physicsWorker for the 'launching' phase.
+  // Turning phase is handled in logicLoop() directly.
+  // This function is kept as a no-op for compatibility.
+}
+
 function resumeAimPhase() {
+  if (phase === 'result') return; // don't resume if we just ended the round
+  // Stop physics worker — we're back to aim phase
+  if (physicsWorker) { physicsWorker.postMessage({ type: 'stop' }); }
+  // Ensure main interval is running for aim/turning phases
+  stopMainInterval();
+  startMainInterval();
   aimStart = null; aimEnd = null; isDragging = false;
   for (const p of penguins) {
     if (!p.alive) continue;
@@ -744,6 +928,8 @@ function resumeAimPhase() {
 function checkRoundEnd(alive) {
   if (phase === 'result') return;
   phase = 'result';
+  // Stop physics worker immediately so it can't keep firing applyWorkerState
+  if (physicsWorker) { physicsWorker.postMessage({ type: 'stop' }); }
   clearInterval(aimInterval);
   clearTimeout(turnTimeout);
   countdownDisplay.style.display = 'none';
@@ -792,18 +978,26 @@ function showResult(msg, win) {
       if (isHost) { 
         if (win) { round++; roundShrink++; }
         const pList = lobbyPlayers.map(p => ({ name: p.name, index: p.index, skinIdx: p.skinIdx ?? 0 }));
-        connections.forEach(c => { try { c.send({ type: 'newRound', round: round, shrink: roundShrink, players: pList }); } catch(e){} });
+        const _mpS = { maxRounds, platformShrinkRate, aimTime: AIM_TIME_MP };
+        connections.forEach(c => { try { c.send({ type: 'newRound', round: round, shrink: roundShrink, players: pList, settings: _mpS }); } catch(e){} });
         startMpRound(); 
       }
     } else {
-      if (win) startRound();
-      else {
+      if (win === 'reset') {
+        // Everyone fell — replay same round
+        if (physicsWorker) physicsWorker.postMessage({ type: 'stop' });
+        startRound();
+      } else if (win) {
+        if (physicsWorker) physicsWorker.postMessage({ type: 'stop' });
+        startRound();
+      } else {
         overlay.style.display = 'flex';
         document.getElementById('lobby-left').style.display = 'flex';
         mpScreen.style.display = 'none';
         startBtn.textContent = 'PLAY AGAIN';
         document.getElementById('bottom-ui').classList.add('hidden');
         round = 1; roundShrink = 0; phase = 'idle';
+        if (physicsWorker) physicsWorker.postMessage({ type: 'stop' });
       }
     }
   }, 2200);
@@ -855,10 +1049,24 @@ function launchAll() {
     if (!p.alive) continue;
     p.vx = Math.cos(p.aimAngle) * p.aimPower * speed;
     p.vy = Math.sin(p.aimAngle) * p.aimPower * speed;
-    p.spinVel = 0; 
+    p.spinVel = 0;
+    p._wasAlive = true;
   }
   phase = 'launching';
   phaseEl.textContent = 'LAUNCH!';
+  // Stop any existing physics worker before starting fresh
+  if (physicsWorker) {
+    physicsWorker.postMessage({ type: 'stop' });
+    // Don't terminate — reuse the same worker, just restart its interval
+  } else {
+    const blob = new Blob([PHYSICS_WORKER_SRC], { type: 'application/javascript' });
+    physicsWorker = new Worker(URL.createObjectURL(blob));
+    physicsWorker.onmessage = (e) => {
+      if (e.data.type === 'state') applyWorkerState(e.data.state);
+    };
+  }
+  sendStateToWorker();
+  physicsWorker.postMessage({ type: 'start' });
   if (mpMode && isHost) broadcastState();
 }
 
@@ -917,13 +1125,13 @@ function drawPlatform() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-  else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+  if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, window.innerWidth, window.innerHeight);
+  else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight); }
   // Always draw platform so it shows in the lobby background
   drawPlatform();
   // Menu overlay drawn AFTER platform so arena shows behind it
   if (phase === 'idle' && menuOverlayImg.complete && menuOverlayImg.naturalWidth)
-    ctx.drawImage(menuOverlayImg, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(menuOverlayImg, 0, 0, window.innerWidth, window.innerHeight);
 
   // (platform already drawn via drawPlatform() above)
 
@@ -945,25 +1153,25 @@ function draw() {
   for (const p of penguins) {
     ctx.save();
     if (!p.alive) ctx.globalAlpha = 0.18;
-    const size = PENGUIN_R * 2.3;
+    const size = getPenguinR() * 2.3;
     ctx.translate(p.x, p.y); ctx.rotate(p.facingAngle);
     const img = skinImgs[p.skinIdx ?? 0];
     if (img && img.complete && img.naturalWidth) ctx.drawImage(img, -size / 2, -size / 2, size, size);
-    else { ctx.beginPath(); ctx.arc(0, 0, PENGUIN_R, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0, 0, getPenguinR(), 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }
     ctx.restore();
 
     if (p.alive) {
       const isMe2 = mpMode ? p === penguins[myPeerIdx] : p.isPlayer;
       if (isMe2) {
-        ctx.beginPath(); ctx.arc(p.x, p.y, PENGUIN_R + 5, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(p.x, p.y, getPenguinR() + 5, 0, Math.PI * 2);
         ctx.strokeStyle = p.color; ctx.lineWidth = 2.5; ctx.stroke();
       }
       // Draw name with dark outline for visibility on white platform
       ctx.font = 'bold 11px Segoe UI,sans-serif'; ctx.textAlign = 'center';
       ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3;
-      ctx.strokeText(p.name, p.x, p.y - PENGUIN_R - 6);
+      ctx.strokeText(p.name, p.x, p.y - getPenguinR() - 6);
       ctx.fillStyle = isMe2 ? p.color : '#fff';
-      ctx.fillText(p.name, p.x, p.y - PENGUIN_R - 6);
+      ctx.fillText(p.name, p.x, p.y - getPenguinR() - 6);
     }
   }
 
@@ -1093,7 +1301,16 @@ function renderLobby() {
 }
 
 function broadcastLobby() {
-  const msg = { type: 'lobby', players: lobbyPlayers.map(p => ({ name: p.name, index: p.index, skinIdx: p.skinIdx ?? 0 })) };
+  const mpSettings = {
+    maxRounds: parseInt(document.getElementById('mp-set-rounds')?.value || '5'),
+    platformShrinkRate: parseFloat(document.getElementById('mp-set-shrink')?.value || '0.05'),
+    aimTime: parseInt(document.getElementById('mp-set-aimtime')?.value || '8'),
+  };
+  const msg = {
+    type: 'lobby',
+    players: lobbyPlayers.map(p => ({ name: p.name, index: p.index, skinIdx: p.skinIdx ?? 0 })),
+    settings: mpSettings,
+  };
   connections.forEach(c => { try { c.send(msg); } catch(e){} });
 }
 
@@ -1101,7 +1318,15 @@ startMpBtn.addEventListener('click', () => {
   if (lobbyPlayers.length < 2) { hostStatus.textContent = 'Need at least 2 players!'; return; }
   playerCount = lobbyPlayers.length;
   const players = lobbyPlayers.map(p => ({ name: p.name, index: p.index, skinIdx: p.skinIdx ?? 0 }));
-  connections.forEach(c => { try { c.send({ type: 'gameStart', playerCount, players }); } catch(e){} });
+  // Read host's room settings
+  const mpSettings = {
+    maxRounds: parseInt(document.getElementById('mp-set-rounds').value),
+    platformShrinkRate: parseFloat(document.getElementById('mp-set-shrink').value),
+    aimTime: parseInt(document.getElementById('mp-set-aimtime').value),
+  };
+  connections.forEach(c => { try { c.send({ type: 'gameStart', playerCount, players, settings: mpSettings }); } catch(e){} });
+  // Apply settings locally too
+  applyMpSettings(mpSettings);
   beginMpGame(players);
 });
 
@@ -1159,27 +1384,48 @@ function renderClientLobby(players) {
   if (joinStatus) joinStatus.textContent = `${players.length} player(s) in lobby.`;
 }
 
+
+function applyMpSettings(s) {
+  if (!s) return;
+  if (s.maxRounds !== undefined) maxRounds = s.maxRounds;
+  if (s.platformShrinkRate !== undefined) platformShrinkRate = s.platformShrinkRate;
+  if (s.aimTime !== undefined) AIM_TIME_MP = s.aimTime;
+}
+
+function showJoinSettings(s) {
+  if (!s) return;
+  const panel = document.getElementById('mp-join-settings');
+  if (!panel) return;
+  panel.style.display = 'flex';
+  const roundsLabel = s.maxRounds === 0 ? 'Infinite' : `${s.maxRounds} rounds`;
+  const shrinkLabel = s.platformShrinkRate === 0 ? 'None' : s.platformShrinkRate === 0.05 ? 'Normal' : 'Fast';
+  document.getElementById('js-rounds').textContent = roundsLabel;
+  document.getElementById('js-shrink').textContent = shrinkLabel;
+  document.getElementById('js-aimtime').textContent = `${s.aimTime}s`;
+}
+
 function handleMsg(msg, conn) {
   if (msg.type === 'welcome') {
     myPeerIdx = msg.index; isHost = false;
     joinStatus.textContent = `Joined as ${msg.name}. Waiting for host to start...`;
   }
   if (msg.type === 'lobby') {
-    // Render the lobby list on the client side too
     renderClientLobby(msg.players);
+    if (msg.settings) showJoinSettings(msg.settings);
   }
   if (msg.type === 'gameStart') {
     playerCount = msg.playerCount;
+    applyMpSettings(msg.settings);
     beginMpGame(msg.players);
   }
   if (msg.type === 'state' && !isHost) applyHostState(msg);
   if (msg.type === 'phase' && !isHost) handlePhaseMsg(msg);
   if (msg.type === 'aim' && isHost) receiveAim(msg);
-  if (msg.type === 'newRound' && !isHost) { round = msg.round; roundShrink = msg.shrink; startMpRound(msg.players); }
+  if (msg.type === 'newRound' && !isHost) { round = msg.round; roundShrink = msg.shrink; applyMpSettings(msg.settings); startMpRound(msg.players); }
 }
 
 function beginMpGame(players) {
-  mpMode = true; round = 1; roundShrink = 0;
+  mpMode = true; round = 1; roundShrink = 0; AIM_TIME_MP = 8; // reset, overridden by applyMpSettings
   overlay.style.display = 'none'; resultBanner.style.display = 'none';
   startMpRound(players);
   
@@ -1187,7 +1433,9 @@ function beginMpGame(players) {
 }
 
 function startMpRound(players) {
-  platformX = canvas.width / 2; platformY = canvas.height / 2;
+  const _navH = document.getElementById('lobby-nav')?.offsetHeight || 56;
+  platformX = window.innerWidth / 2;
+  platformY = _navH + (window.innerHeight - _navH) / 2;
   const pList = players || lobbyPlayers.map((p, i) => ({ name: p.name, index: i }));
   playerCount = pList.length;
   penguins = [];
@@ -1257,7 +1505,7 @@ function handlePhaseMsg(msg) {
 
 function destroyPeer() {
   clearInterval(aimInterval);
-  stopLogicWorker();
+  stopLogicWorker(); stopMainInterval();
   clearTimeout(turnTimeout);
   animRunning = false;
   if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
