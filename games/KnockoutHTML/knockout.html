@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>KnockOut! 🐧</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -14,10 +14,6 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 #gameCanvas { display: block; }
-#gameCanvas { touch-action: none; width: 100%; height: 100%; }
-#ui, #overlay { -webkit-user-select: none; user-select: none; }
-html, body { -webkit-text-size-adjust: 100%; touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0); }
-body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 #hud { display: flex; justify-content: space-between; padding: 12px 18px; gap: 10px; }
 .hud-box {
@@ -232,8 +228,6 @@ body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-
 /* ── Mobile support ──────────────────────────────────────────── */
 @media (max-width: 600px) {
   #lobby-left { width: 180px; }
-  .btn { padding: 12px 20px; font-size: 16px; }
-  .nav-btn { padding: 10px 12px; }
   #char-preview img { width: 100px; height: 100px; }
   #play-btn { font-size: 18px; padding: 12px; }
   #lobby-name-input { font-size: 15px; padding: 8px 12px; }
@@ -452,13 +446,9 @@ const mpScreen = document.getElementById('mp-screen');
 const doJoinBtn = document.getElementById('doJoinBtn');
 
 function resize() {
-  const dpr = window.devicePixelRatio || 1;
   const newPX = window.innerWidth / 2, newPY = window.innerHeight / 2;
-  canvas.width = Math.floor(window.innerWidth * dpr);
-  canvas.height = Math.floor(window.innerHeight * dpr);
-  canvas.style.width = window.innerWidth + 'px';
-  canvas.style.height = window.innerHeight + 'px';
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
   if (penguins.length && phase !== 'idle') {
     const dx = newPX - platformX, dy = newPY - platformY;
     for (const p of penguins) { p.x += dx; p.y += dy; }
@@ -480,20 +470,8 @@ if (selectedSkin >= SKIN_FILES.length) selectedSkin = 0;
 function getMyImg() { return skinImgs[selectedSkin]; }
 function getBotImg() { return skinImgs.find(img => img.src.includes('blue.png')) || skinImgs[0]; }
 
-const PENGUIN_R_BASE = 26;
+const PENGUIN_R = 26;
 const PLATFORM_R_BASE = 0.30;
-function getPenguinR() {
-  const minDim = Math.min(window.innerWidth, window.innerHeight);
-  // scale penguin radius to viewport: ~8% of smaller dimension, clamped
-  const scaled = Math.round(minDim * 0.08);
-  return Math.max(16, Math.min(40, scaled));
-}
-function getPlatformBase() {
-  const w = Math.min(window.innerWidth, window.innerHeight);
-  if (w < 420) return PLATFORM_R_BASE * 1.45; // small phones: bigger arena
-  if (w < 600) return PLATFORM_R_BASE * 1.25; // phablets
-  return PLATFORM_R_BASE;
-}
 const AIM_TIME = 8;
 const PLAYER_COLORS = ['#00e5ff','#ff5c5c','#ffe44d','#7fff6e','#d97fff','#ff9f4a'];
 const NUM_BOTS = 4;
@@ -526,7 +504,7 @@ let playerCount = 1;
 let roomCode = '';
 
 function getPlatformR() {
-  return Math.min(window.innerWidth, window.innerHeight) * getPlatformBase() * (1 - roundShrink * platformShrinkRate);
+  return Math.min(canvas.width, canvas.height) * PLATFORM_R_BASE * (1 - roundShrink * platformShrinkRate);
 }
 
 function getArrowColor(power, alpha = 1) {
@@ -565,7 +543,7 @@ function spawnPenguin(i, total, isMe, name, color, skinIdx) {
 }
 
 function makeSoloPenguins() {
-  platformX = window.innerWidth / 2; platformY = window.innerHeight / 2;
+  platformX = canvas.width / 2; platformY = canvas.height / 2;
   const total = numBots + 1;
   penguins = [];
   for (let i = 0; i < total; i++) {
@@ -697,24 +675,21 @@ function update(dt) {
       if (!a.alive || !b.alive) continue;
       const dx = b.x - a.x, dy = b.y - a.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < getPenguinR() * 2 && dist > 0.01) {
+      if (dist < PENGUIN_R * 2 && dist > 0.01) {
         const nx = dx / dist, ny = dy / dist;
         const relV = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
         if (relV < 0) {
-          // Physically accurate 1D elastic collision for equal masses
-          const impulse = relV * 1.0; 
-          
-          a.vx += impulse * nx; 
-          a.vy += impulse * ny;
-          b.vx -= impulse * nx; 
-          b.vy -= impulse * ny;
-          
+          // Elastic collision: full impulse exchange so neither passes through
+          // Asymmetric feel: b (hit) gets 80%, a (hitter) gets 20% bounce-back
+          const impulse = relV * 1.4; // slight boost so hits feel impactful
+          a.vx += impulse * nx * 0.20; a.vy += impulse * ny * 0.20;
+          b.vx -= impulse * nx * 0.80; b.vy -= impulse * ny * 0.80;
           const s = Math.abs(relV) * 0.07;
-          a.spinVel = (Math.random() - 0.5) * s;
+          a.spinVel = (Math.random() - 0.5) * s * 0.3;
           b.spinVel = (Math.random() - 0.5) * s;
         }
         // Push apart fully so they never overlap/tunnel
-        const ov = getPenguinR() * 2 - dist + 1;
+        const ov = PENGUIN_R * 2 - dist + 1;
         a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5;
         b.x += nx * ov * 0.5; b.y += ny * ov * 0.5;
         spawnParticles((a.x + b.x) / 2, (a.y + b.y) / 2, '#aef');
@@ -725,7 +700,7 @@ function update(dt) {
   const pr = getPlatformR();
   for (const p of penguins) {
     if (!p.alive) continue;
-    if (Math.hypot(p.x - platformX, p.y - platformY) > pr + getPenguinR() * 0.6) {
+    if (Math.hypot(p.x - platformX, p.y - platformY) > pr + PENGUIN_R * 0.6) {
       p.alive = false;
       spawnParticles(p.x, p.y, p.color, 16);
     }
@@ -942,13 +917,13 @@ function drawPlatform() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, window.innerWidth, window.innerHeight);
-  else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight); }
+  if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+  else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
   // Always draw platform so it shows in the lobby background
   drawPlatform();
   // Menu overlay drawn AFTER platform so arena shows behind it
   if (phase === 'idle' && menuOverlayImg.complete && menuOverlayImg.naturalWidth)
-    ctx.drawImage(menuOverlayImg, 0, 0, window.innerWidth, window.innerHeight);
+    ctx.drawImage(menuOverlayImg, 0, 0, canvas.width, canvas.height);
 
   // (platform already drawn via drawPlatform() above)
 
@@ -970,25 +945,25 @@ function draw() {
   for (const p of penguins) {
     ctx.save();
     if (!p.alive) ctx.globalAlpha = 0.18;
-    const size = getPenguinR() * 2.3;
+    const size = PENGUIN_R * 2.3;
     ctx.translate(p.x, p.y); ctx.rotate(p.facingAngle);
     const img = skinImgs[p.skinIdx ?? 0];
     if (img && img.complete && img.naturalWidth) ctx.drawImage(img, -size / 2, -size / 2, size, size);
-    else { ctx.beginPath(); ctx.arc(0, 0, getPenguinR(), 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0, 0, PENGUIN_R, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }
     ctx.restore();
 
     if (p.alive) {
       const isMe2 = mpMode ? p === penguins[myPeerIdx] : p.isPlayer;
       if (isMe2) {
-        ctx.beginPath(); ctx.arc(p.x, p.y, getPenguinR() + 5, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(p.x, p.y, PENGUIN_R + 5, 0, Math.PI * 2);
         ctx.strokeStyle = p.color; ctx.lineWidth = 2.5; ctx.stroke();
       }
       // Draw name with dark outline for visibility on white platform
       ctx.font = 'bold 11px Segoe UI,sans-serif'; ctx.textAlign = 'center';
       ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3;
-      ctx.strokeText(p.name, p.x, p.y - getPenguinR() - 6);
+      ctx.strokeText(p.name, p.x, p.y - PENGUIN_R - 6);
       ctx.fillStyle = isMe2 ? p.color : '#fff';
-      ctx.fillText(p.name, p.x, p.y - getPenguinR() - 6);
+      ctx.fillText(p.name, p.x, p.y - PENGUIN_R - 6);
     }
   }
 
@@ -1212,7 +1187,7 @@ function beginMpGame(players) {
 }
 
 function startMpRound(players) {
-  platformX = window.innerWidth / 2; platformY = window.innerHeight / 2;
+  platformX = canvas.width / 2; platformY = canvas.height / 2;
   const pList = players || lobbyPlayers.map((p, i) => ({ name: p.name, index: i }));
   playerCount = pList.length;
   penguins = [];
