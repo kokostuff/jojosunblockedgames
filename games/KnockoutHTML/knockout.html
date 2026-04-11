@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>KnockOut! 🐧</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -28,7 +28,9 @@ body {
   position: absolute; bottom: 0; left: 0; width: 100%;
   display: flex; flex-direction: column; align-items: center;
   padding-bottom: 18px; gap: 8px;
+  transition: opacity 0.3s;
 }
+#bottom-ui.hidden { opacity: 0; pointer-events: none; }
 #aim-hint { color: rgba(255,255,255,0.7); font-size: 12px; font-weight: 600; }
 #power-label { color: rgba(255,255,255,0.6); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
 #power-bar-wrap { background: rgba(0,0,0,0.5); border-radius: 20px; width: 200px; height: 14px; overflow: hidden; border: 1.5px solid rgba(255,255,255,0.15); }
@@ -42,8 +44,8 @@ body {
 .btn-primary:hover:not(:disabled) { background: #0096c7; }
 .btn-secondary { background: rgba(255,255,255,0.13); color: #fff; border: 1.5px solid rgba(255,255,255,0.22); }
 .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
-.btn-green { background: #00c875; color: #fff; box-shadow: 0 0 20px rgba(0,200,117,0.35); }
-.btn-green:hover:not(:disabled) { background: #00a85f; }
+.btn-green { background: #00b4d8; color: #fff; box-shadow: 0 0 20px rgba(0,180,216,0.4); }
+.btn-green:hover:not(:disabled) { background: #0096c7; }
 .btn-yellow { background: #00b4d8; color: #fff; box-shadow: 0 4px 0 #0077a0; }
 .btn-yellow:hover:not(:disabled) { background: #0096c7; }
 .btn-yellow:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 #0077a0; }
@@ -194,6 +196,54 @@ body {
   font-size: 13px; font-weight: 600; border-radius: 10px; padding: 8px 20px;
   display: none; pointer-events: none; white-space: nowrap;
 }
+
+
+/* ── Settings overlay ────────────────────────────────────────── */
+#settings-overlay {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(8,18,30,0.96); pointer-events: all; z-index: 10;
+}
+#settings-overlay h2 { color: #fff; font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+#settings-overlay .settings-sub { color: rgba(255,255,255,0.45); font-size: 13px; margin-bottom: 20px; }
+.settings-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  width: 100%; max-width: 360px; margin-bottom: 20px;
+}
+.setting-row {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.setting-row label { color: rgba(255,255,255,0.6); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+.setting-row select, .setting-row input[type=range] {
+  background: #1a2a3a; border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px; padding: 5px 8px; color: #fff; font-size: 13px; font-weight: 700;
+  outline: none; width: 100%; cursor: pointer;
+}
+.setting-row select option { background: #1a2a3a; color: #fff; }
+.setting-row input[type=range] { padding: 0; height: 4px; accent-color: #00b4d8; }
+.setting-val { color: #00e5ff; font-size: 13px; font-weight: 800; }
+
+/* ── Mobile support ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  #lobby-left { width: 180px; }
+  #char-preview img { width: 100px; height: 100px; }
+  #play-btn { font-size: 18px; padding: 12px; }
+  #lobby-name-input { font-size: 15px; padding: 8px 12px; }
+  #lobby-nav .nav-title { font-size: 16px; }
+  .nav-btn { font-size: 11px; padding: 6px 10px; }
+  #lobby-body { padding: 0 16px 20px 16px; }
+  .hud-box { padding: 4px 10px; font-size: 10px; }
+  .hud-box span { font-size: 18px; }
+  #countdown-display { font-size: 52px; }
+  #skin-grid { grid-template-columns: repeat(3, 80px); }
+  #settings-overlay .settings-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 400px) {
+  #lobby-left { width: 150px; }
+  .nav-btn span.nav-label { display: none; }
+}
 /* Skin picker overlay */
 #skin-overlay {
   position: absolute; inset: 0;
@@ -237,7 +287,8 @@ body {
   <!-- Top nav bar -->
   <div id="lobby-nav">
     <span class="nav-title">KnockOut! 🐧</span>
-    <button class="nav-btn" id="mpBtn" style="display:none"><span class="nav-icon">🌐</span> Multiplayer</button>
+    <button class="nav-btn" id="settingsBtn"><span class="nav-icon nav-label">Settings</span></button>
+    <button class="nav-btn" id="mpBtn" style="display:none"><span class="nav-icon">🌐</span><span class="nav-label"> Multiplayer</span></button>
   </div>
 
   <!-- Lobby body -->
@@ -262,7 +313,8 @@ body {
       <div id="lobby-mode-row">
         <span class="mode-label">Mode:</span>
         <select id="gamemode-select">
-          <option value="bots">vs Bots</option>
+          <option value="bots-normal">vs Bots (5 rounds)</option>
+          <option value="bots-infinite">vs Bots (Infinite)</option>
           <option value="mp" id="mp-option" style="display:none">Multiplayer</option>
         </select>
       </div>
@@ -273,7 +325,7 @@ body {
       <div id="sub-pick" class="sub-screen">
         <h2>Multiplayer</h2>
         <p>Host a room or join a friend's room.</p>
-        <button class="btn btn-green" id="hostBtn" style="width:100%">Create Room</button>
+        <button class="btn btn-primary" id="hostBtn" style="width:100%">Create Room</button>
         <button class="btn btn-secondary" id="joinModeBtn" style="width:100%">Join Room</button>
         <button class="btn btn-secondary btn-sm" id="mpBackBtn" style="width:100%">← Back</button>
       </div>
@@ -300,6 +352,51 @@ body {
   </div>
 </div>
 
+<div id="settings-overlay">
+  <h2>Game Settings</h2>
+  <p class="settings-sub">These apply to vs Bots games.</p>
+  <div class="settings-grid">
+    <div class="setting-row">
+      <label>Rounds</label>
+      <select id="set-rounds">
+        <option value="3">3 rounds</option>
+        <option value="5" selected>5 rounds</option>
+        <option value="10">10 rounds</option>
+        <option value="0">Infinite</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>Bots</label>
+      <select id="set-bots">
+        <option value="0">No bots</option>
+        <option value="2">2 bots</option>
+        <option value="4" selected>4 bots</option>
+        <option value="6">6 bots</option>
+        <option value="8">8 bots</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>Bot difficulty</label>
+      <select id="set-difficulty">
+        <option value="0.3">Easy</option>
+        <option value="0.55" selected>Medium</option>
+        <option value="0.8">Hard</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>Platform shrink</label>
+      <select id="set-shrink">
+        <option value="0">None</option>
+        <option value="0.05" selected>Normal</option>
+        <option value="0.1">Fast</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-primary" id="settings-done">Save</button>
+    <button class="btn btn-secondary" id="settings-cancel">Cancel</button>
+  </div>
+</div>
 <div id="skin-overlay">
   <h2>Choose Your Skin</h2>
   <p>Your skin is visible to other players online.</p>
@@ -361,6 +458,7 @@ function resize() {
 }
 
 const bgImg = new Image(); bgImg.src = 'images/bg.jpg';
+const menuOverlayImg = new Image(); menuOverlayImg.src = 'images/menuoverlay.png';
 
 // Cache all skin images
 const skinImgs = SKIN_FILES.map(f => { const img = new Image(); img.src = 'skins/' + f; return img; });
@@ -378,7 +476,8 @@ const AIM_TIME = 8;
 const PLAYER_COLORS = ['#00e5ff','#ff5c5c','#ffe44d','#7fff6e','#d97fff','#ff9f4a'];
 const NUM_BOTS = 4;
 
-let round = 1, roundShrink = 0;
+let round = 1, roundShrink = 0, maxRounds = 5; // 0 = infinite
+let numBots = 4, botDifficulty = 0.55, platformShrinkRate = 0.05;
 let penguins = [], particles = [];
 let phase = 'idle'; // idle, aim, turning, launching, result
 let aimStart = null, aimEnd = null, isDragging = false;
@@ -405,7 +504,7 @@ let playerCount = 1;
 let roomCode = '';
 
 function getPlatformR() {
-  return Math.min(canvas.width, canvas.height) * PLATFORM_R_BASE * (1 - roundShrink * 0.05);
+  return Math.min(canvas.width, canvas.height) * PLATFORM_R_BASE * (1 - roundShrink * platformShrinkRate);
 }
 
 function getArrowColor(power, alpha = 1) {
@@ -445,7 +544,7 @@ function spawnPenguin(i, total, isMe, name, color, skinIdx) {
 
 function makeSoloPenguins() {
   platformX = canvas.width / 2; platformY = canvas.height / 2;
-  const total = NUM_BOTS + 1;
+  const total = numBots + 1;
   penguins = [];
   for (let i = 0; i < total; i++) {
     const skinIdx = i === 0 ? selectedSkin : 0; // player = chosen skin, bots = blue
@@ -458,11 +557,32 @@ function makeSoloPenguins() {
   aliveEl.textContent = total;
 }
 
+
+// ── Web Worker tick (runs at full speed even when tab is hidden) ──────────
+const WORKER_SRC = `
+  let iv = null;
+  self.onmessage = function(e) {
+    if (e.data === 'start') { if (!iv) iv = setInterval(() => self.postMessage('tick'), 16); }
+    if (e.data === 'stop')  { clearInterval(iv); iv = null; }
+  };
+`;
+let logicWorker = null;
+function startLogicWorker() {
+  if (logicWorker) return;
+  const blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
+  logicWorker = new Worker(URL.createObjectURL(blob));
+  logicWorker.onmessage = () => logicLoop();
+  logicWorker.postMessage('start');
+}
+function stopLogicWorker() {
+  if (logicWorker) { logicWorker.postMessage('stop'); logicWorker.terminate(); logicWorker = null; }
+}
+
 function startGame() {
   mpMode = false; round = 1; roundShrink = 0;
-  // Save name from lobby input so it's used in-game
   try { if (nameInput.value.trim()) localStorage.setItem('ko-name', nameInput.value.trim()); } catch(e){}
   overlay.style.display = 'none'; resultBanner.style.display = 'none';
+  document.getElementById('bottom-ui').classList.remove('hidden');
   startRound();
 }
 
@@ -480,7 +600,7 @@ function startRound() {
   if (!animRunning) {
     animRunning = true;
     lastUpdate = performance.now();
-    logicInterval = setInterval(logicLoop, 1000 / 60); 
+    startLogicWorker(); // uses Web Worker so it runs even when tab is hidden 
     renderLoop();
   }
 }
@@ -507,6 +627,7 @@ function renderLoop() {
   requestAnimationFrame(renderLoop);
 }
 // Start immediately so lobby background renders
+document.getElementById('bottom-ui').classList.add('hidden');
 renderLoop();
 
 function logicLoop() {
@@ -524,7 +645,7 @@ function update(dt) {
   if (phase === 'turning') {
     for (const p of penguins) {
       if (p.alive && p.aimAngle !== null) {
-        p.facingAngle = lerpAngle(p.facingAngle, p.aimAngle, 0.15 * dt);
+        p.facingAngle = lerpAngle(p.facingAngle, p.aimAngle, 0.10 * dt);
       }
     }
     if (mpMode && isHost) broadcastState();
@@ -558,13 +679,20 @@ function update(dt) {
         const nx = dx / dist, ny = dy / dist;
         const relV = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
         if (relV < 0) {
-          a.vx += relV * nx; a.vy += relV * ny;
-          b.vx -= relV * nx; b.vy -= relV * ny;
-          const s = Math.abs(relV) * 0.08;
+          // Physically accurate 1D elastic collision for equal masses
+          const impulse = relV * 1.0; 
+          
+          a.vx += impulse * nx; 
+          a.vy += impulse * ny;
+          b.vx -= impulse * nx; 
+          b.vy -= impulse * ny;
+          
+          const s = Math.abs(relV) * 0.07;
           a.spinVel = (Math.random() - 0.5) * s;
           b.spinVel = (Math.random() - 0.5) * s;
         }
-        const ov = PENGUIN_R * 2 - dist;
+        // Push apart fully so they never overlap/tunnel
+        const ov = PENGUIN_R * 2 - dist + 1;
         a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5;
         b.x += nx * ov * 0.5; b.y += ny * ov * 0.5;
         spawnParticles((a.x + b.x) / 2, (a.y + b.y) / 2, '#aef');
@@ -626,15 +754,31 @@ function checkRoundEnd(alive) {
 
   if (alive.length === 0) {
     roundShrink = 0; 
-    showResult("Everyone Fell! Arena Reset 🤝", false);
+    showResult("Everyone fell! Arena reset.", "reset");
   } else if (mpMode) {
     const winner = alive[0];
     const iWon = winner === penguins[myPeerIdx];
-    showResult(iWon ? 'You Win! 🏆' : `${winner.name} wins! 🏆`, iWon);
+    showResult(iWon ? 'You win!' : `${winner.name} wins!`, iWon);
   } else {
     const playerAlive = alive.find(p => p.isPlayer);
-    if (!playerAlive) showResult('Knocked Out! 💀', false);
-    else { round++; roundShrink++; showResult('All bots eliminated! 🏆', true); }
+    if (!playerAlive) showResult('Knocked out!', false);
+    else {
+      round++; roundShrink++;
+      if (maxRounds > 0 && round > maxRounds) {
+        showResult('Game complete! You won!', true);
+        // force game-over flow
+        setTimeout(() => {
+          overlay.style.display = 'flex';
+          document.getElementById('lobby-left').style.display = 'flex';
+          mpScreen.style.display = 'none';
+          startBtn.textContent = 'PLAY AGAIN';
+          document.getElementById('bottom-ui').classList.add('hidden');
+          round = 1; roundShrink = 0; phase = 'idle';
+        }, 2200);
+        return;
+      }
+      showResult('Round won!', true);
+    }
   }
 }
 
@@ -661,8 +805,8 @@ function showResult(msg, win) {
         document.getElementById('lobby-left').style.display = 'flex';
         mpScreen.style.display = 'none';
         startBtn.textContent = 'PLAY AGAIN';
+        document.getElementById('bottom-ui').classList.add('hidden');
         round = 1; roundShrink = 0; phase = 'idle';
-        // loop keeps running so lobby bg stays visible
       }
     }
   }, 2200);
@@ -673,10 +817,11 @@ function botAim() {
   for (const p of penguins) {
     if (!p.isBot || !p.alive) continue;
     const others = penguins.filter(x => x.alive && x !== p);
-    const target = (player?.alive && Math.random() < 0.65) ? player : others[Math.floor(Math.random() * others.length)];
+    const target = (player?.alive && Math.random() < botDifficulty) ? player : others[Math.floor(Math.random() * others.length)];
     if (!target) { p.aimAngle = Math.random() * Math.PI * 2; p.aimPower = 0.4 + Math.random() * 0.4; }
     else {
-      p.aimAngle = Math.atan2(target.y - p.y, target.x - p.x) + (Math.random() - 0.5) * 0.55;
+      const scatter = (1 - botDifficulty) * 1.2;
+      p.aimAngle = Math.atan2(target.y - p.y, target.x - p.x) + (Math.random() - 0.5) * scatter;
       p.aimPower = 0.3 + Math.random() * 0.55;
     }
     p.launched = true; 
@@ -704,7 +849,7 @@ function prepareLaunch() {
   
   turnTimeout = setTimeout(() => {
     launchAll();
-  }, 500); 
+  }, 800); 
 }
 
 function launchAll() {
@@ -779,16 +924,11 @@ function draw() {
   else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
   // Always draw platform so it shows in the lobby background
   drawPlatform();
+  // Menu overlay drawn AFTER platform so arena shows behind it
+  if (phase === 'idle' && menuOverlayImg.complete && menuOverlayImg.naturalWidth)
+    ctx.drawImage(menuOverlayImg, 0, 0, canvas.width, canvas.height);
 
-  const pr = getPlatformR();
-  ctx.save();
-  ctx.beginPath(); ctx.arc(platformX, platformY, pr, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(200,230,255,0.4)'; ctx.lineWidth = 1;
-  for (let r = pr * 0.2; r < pr; r += pr * 0.15) { ctx.beginPath(); ctx.arc(platformX, platformY, r, 0, Math.PI * 2); ctx.stroke(); }
-  ctx.beginPath(); ctx.arc(platformX, platformY, pr, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(180,210,255,0.9)'; ctx.lineWidth = 3; ctx.stroke();
-  ctx.restore();
+  // (platform already drawn via drawPlatform() above)
 
   const me = myP();
   if (phase === 'aim' && me?.alive && isDragging && aimStart && aimEnd) {
@@ -821,8 +961,11 @@ function draw() {
         ctx.beginPath(); ctx.arc(p.x, p.y, PENGUIN_R + 5, 0, Math.PI * 2);
         ctx.strokeStyle = p.color; ctx.lineWidth = 2.5; ctx.stroke();
       }
-      ctx.fillStyle = isMe2 ? p.color : 'rgba(255,255,255,0.55)';
-      ctx.font = 'bold 10px Segoe UI,sans-serif'; ctx.textAlign = 'center';
+      // Draw name with dark outline for visibility on white platform
+      ctx.font = 'bold 11px Segoe UI,sans-serif'; ctx.textAlign = 'center';
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3;
+      ctx.strokeText(p.name, p.x, p.y - PENGUIN_R - 6);
+      ctx.fillStyle = isMe2 ? p.color : '#fff';
       ctx.fillText(p.name, p.x, p.y - PENGUIN_R - 6);
     }
   }
@@ -845,6 +988,7 @@ function drawArrow(x, y, angle, len, color) {
 
 function showSubScreen(id) {
   document.getElementById('lobby-left').style.display = 'none';
+  document.getElementById('settingsBtn').style.display = 'none';
   mpScreen.style.display = 'flex';
   ['sub-pick','sub-host','sub-join'].forEach(s => document.getElementById(s).style.display = 'none');
   document.getElementById(id).style.display = 'flex';
@@ -853,6 +997,7 @@ function showSubScreen(id) {
 function hideMpScreens() {
   mpScreen.style.display = 'none';
   document.getElementById('lobby-left').style.display = 'flex';
+  document.getElementById('settingsBtn').style.display = '';
   doJoinBtn.disabled = false;
 }
 
@@ -916,7 +1061,7 @@ document.getElementById('hostBtn').addEventListener('click', () => {
         if (phase !== 'idle' && phase !== 'result') {
           // Only 1 human left (host alone) — end game
           if (connections.length === 0) {
-            showResult(`${pData.name} disconnected — you win! 🏆`, true);
+            showResult(`${pData.name} disconnected - you win!`, true);
             return;
           }
           // Check if game should resolve now
@@ -951,7 +1096,7 @@ function renderLobby() {
 }
 
 function broadcastLobby() {
-  const msg = { type: 'lobby', players: lobbyPlayers.map(p => ({ name: p.name, index: p.index })) };
+  const msg = { type: 'lobby', players: lobbyPlayers.map(p => ({ name: p.name, index: p.index, skinIdx: p.skinIdx ?? 0 })) };
   connections.forEach(c => { try { c.send(msg); } catch(e){} });
 }
 
@@ -985,7 +1130,7 @@ doJoinBtn.addEventListener('click', () => {
       doJoinBtn.disabled = false;
       if (mpMode && phase !== 'idle' && phase !== 'result') {
         // Host disconnected during game
-        showResult('Host disconnected! 🔌', false);
+        showResult('Host disconnected!', false);
         setTimeout(() => destroyPeer(), 2500);
       } else {
         joinStatus.textContent = 'Disconnected from host.';
@@ -997,13 +1142,34 @@ doJoinBtn.addEventListener('click', () => {
   peer.on('error', e => { joinStatus.textContent = 'Could not connect: ' + e.type; doJoinBtn.disabled = false; });
 });
 
+function renderClientLobby(players) {
+  // Show the lobby list in the join screen for clients
+  const joinStatus = document.getElementById('join-status');
+  const lobbyList = document.getElementById('lobby-list');
+  // Move lobby-list into join sub-screen if not already there
+  const subJoin = document.getElementById('sub-join');
+  if (subJoin && !subJoin.contains(lobbyList)) {
+    subJoin.insertBefore(lobbyList, joinStatus);
+  }
+  lobbyList.innerHTML = '';
+  players.forEach((p, i) => {
+    const d = document.createElement('div');
+    const isMe = p.index === myPeerIdx;
+    d.className = 'lobby-row' + (isMe ? ' me' : '');
+    d.innerHTML = `<div class="dot" style="background:${PLAYER_COLORS[p.index % PLAYER_COLORS.length]}"></div>${p.name}${isMe ? ' (you)' : ''}`;
+    lobbyList.appendChild(d);
+  });
+  if (joinStatus) joinStatus.textContent = `${players.length} player(s) in lobby.`;
+}
+
 function handleMsg(msg, conn) {
   if (msg.type === 'welcome') {
     myPeerIdx = msg.index; isHost = false;
     joinStatus.textContent = `Joined as ${msg.name}. Waiting for host to start...`;
   }
   if (msg.type === 'lobby') {
-    joinStatus.textContent = `${msg.players.length} player(s) in lobby.`;
+    // Render the lobby list on the client side too
+    renderClientLobby(msg.players);
   }
   if (msg.type === 'gameStart') {
     playerCount = msg.playerCount;
@@ -1094,7 +1260,7 @@ function handlePhaseMsg(msg) {
 
 function destroyPeer() {
   clearInterval(aimInterval);
-  clearInterval(logicInterval);
+  stopLogicWorker();
   clearTimeout(turnTimeout);
   animRunning = false;
   if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
@@ -1104,6 +1270,29 @@ function destroyPeer() {
   overlay.style.display = 'flex';
   hideMpScreens();
 }
+
+
+// ── Settings ────────────────────────────────────────────────────────────
+
+const settingsOverlay = document.getElementById('settings-overlay');
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  if (mpMode) return; // no settings in multiplayer
+  settingsOverlay.style.display = 'flex';
+  document.getElementById('set-rounds').value = maxRounds;
+  document.getElementById('set-bots').value = numBots;
+  document.getElementById('set-difficulty').value = botDifficulty;
+  document.getElementById('set-shrink').value = platformShrinkRate;
+});
+document.getElementById('settings-done').addEventListener('click', () => {
+  maxRounds = parseInt(document.getElementById('set-rounds').value);
+  numBots = parseInt(document.getElementById('set-bots').value);
+  botDifficulty = parseFloat(document.getElementById('set-difficulty').value);
+  platformShrinkRate = parseFloat(document.getElementById('set-shrink').value);
+  settingsOverlay.style.display = 'none';
+});
+document.getElementById('settings-cancel').addEventListener('click', () => {
+  settingsOverlay.style.display = 'none';
+});
 
 // ── Skin picker ──────────────────────────────────────────────────────────
 const skinOverlay = document.getElementById('skin-overlay');
@@ -1139,11 +1328,11 @@ document.getElementById('skin-close').addEventListener('click', () => {
 
 // ── Play button — routes to bots or MP based on dropdown ────────────────
 startBtn.addEventListener('click', () => {
-  const mode = document.getElementById('gamemode-select')?.value || 'bots';
+  const mode = document.getElementById('gamemode-select')?.value || 'bots-normal';
   if (mode === 'mp') {
     showSubScreen('sub-pick');
   } else {
-    // Grab name from lobby input
+    maxRounds = mode === 'bots-infinite' ? 0 : 5;
     startGame();
   }
 });
