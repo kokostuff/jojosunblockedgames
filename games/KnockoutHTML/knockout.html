@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>KnockOut! 🐧</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -14,6 +14,10 @@ body {
   display: flex; align-items: center; justify-content: center;
 }
 #gameCanvas { display: block; }
+#gameCanvas { touch-action: none; width: 100%; height: 100%; }
+#ui, #overlay { -webkit-user-select: none; user-select: none; }
+html, body { -webkit-text-size-adjust: 100%; touch-action: manipulation; -webkit-tap-highlight-color: rgba(0,0,0,0); }
+body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
 #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 #hud { display: flex; justify-content: space-between; padding: 12px 18px; gap: 10px; }
 .hud-box {
@@ -228,6 +232,8 @@ body {
 /* ── Mobile support ──────────────────────────────────────────── */
 @media (max-width: 600px) {
   #lobby-left { width: 180px; }
+  .btn { padding: 12px 20px; font-size: 16px; }
+  .nav-btn { padding: 10px 12px; }
   #char-preview img { width: 100px; height: 100px; }
   #play-btn { font-size: 18px; padding: 12px; }
   #lobby-name-input { font-size: 15px; padding: 8px 12px; }
@@ -446,9 +452,13 @@ const mpScreen = document.getElementById('mp-screen');
 const doJoinBtn = document.getElementById('doJoinBtn');
 
 function resize() {
+  const dpr = window.devicePixelRatio || 1;
   const newPX = window.innerWidth / 2, newPY = window.innerHeight / 2;
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  canvas.width = Math.floor(window.innerWidth * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (penguins.length && phase !== 'idle') {
     const dx = newPX - platformX, dy = newPY - platformY;
     for (const p of penguins) { p.x += dx; p.y += dy; }
@@ -504,7 +514,7 @@ let playerCount = 1;
 let roomCode = '';
 
 function getPlatformR() {
-  return Math.min(canvas.width, canvas.height) * PLATFORM_R_BASE * (1 - roundShrink * platformShrinkRate);
+  return Math.min(window.innerWidth, window.innerHeight) * PLATFORM_R_BASE * (1 - roundShrink * platformShrinkRate);
 }
 
 function getArrowColor(power, alpha = 1) {
@@ -543,7 +553,7 @@ function spawnPenguin(i, total, isMe, name, color, skinIdx) {
 }
 
 function makeSoloPenguins() {
-  platformX = canvas.width / 2; platformY = canvas.height / 2;
+  platformX = window.innerWidth / 2; platformY = window.innerHeight / 2;
   const total = numBots + 1;
   penguins = [];
   for (let i = 0; i < total; i++) {
@@ -920,13 +930,13 @@ function drawPlatform() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-  else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+  if (bgImg.complete && bgImg.naturalWidth) ctx.drawImage(bgImg, 0, 0, window.innerWidth, window.innerHeight);
+  else { ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight); }
   // Always draw platform so it shows in the lobby background
   drawPlatform();
   // Menu overlay drawn AFTER platform so arena shows behind it
   if (phase === 'idle' && menuOverlayImg.complete && menuOverlayImg.naturalWidth)
-    ctx.drawImage(menuOverlayImg, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(menuOverlayImg, 0, 0, window.innerWidth, window.innerHeight);
 
   // (platform already drawn via drawPlatform() above)
 
@@ -1190,7 +1200,7 @@ function beginMpGame(players) {
 }
 
 function startMpRound(players) {
-  platformX = canvas.width / 2; platformY = canvas.height / 2;
+  platformX = window.innerWidth / 2; platformY = window.innerHeight / 2;
   const pList = players || lobbyPlayers.map((p, i) => ({ name: p.name, index: i }));
   playerCount = pList.length;
   penguins = [];
