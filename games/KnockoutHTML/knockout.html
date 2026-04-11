@@ -480,8 +480,20 @@ if (selectedSkin >= SKIN_FILES.length) selectedSkin = 0;
 function getMyImg() { return skinImgs[selectedSkin]; }
 function getBotImg() { return skinImgs.find(img => img.src.includes('blue.png')) || skinImgs[0]; }
 
-const PENGUIN_R = 26;
+const PENGUIN_R_BASE = 26;
 const PLATFORM_R_BASE = 0.30;
+function getPenguinR() {
+  const minDim = Math.min(window.innerWidth, window.innerHeight);
+  // scale penguin radius to viewport: ~8% of smaller dimension, clamped
+  const scaled = Math.round(minDim * 0.08);
+  return Math.max(16, Math.min(40, scaled));
+}
+function getPlatformBase() {
+  const w = Math.min(window.innerWidth, window.innerHeight);
+  if (w < 420) return PLATFORM_R_BASE * 1.45; // small phones: bigger arena
+  if (w < 600) return PLATFORM_R_BASE * 1.25; // phablets
+  return PLATFORM_R_BASE;
+}
 const AIM_TIME = 8;
 const PLAYER_COLORS = ['#00e5ff','#ff5c5c','#ffe44d','#7fff6e','#d97fff','#ff9f4a'];
 const NUM_BOTS = 4;
@@ -514,7 +526,7 @@ let playerCount = 1;
 let roomCode = '';
 
 function getPlatformR() {
-  return Math.min(window.innerWidth, window.innerHeight) * PLATFORM_R_BASE * (1 - roundShrink * platformShrinkRate);
+  return Math.min(window.innerWidth, window.innerHeight) * getPlatformBase() * (1 - roundShrink * platformShrinkRate);
 }
 
 function getArrowColor(power, alpha = 1) {
@@ -685,7 +697,7 @@ function update(dt) {
       if (!a.alive || !b.alive) continue;
       const dx = b.x - a.x, dy = b.y - a.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < PENGUIN_R * 2 && dist > 0.01) {
+      if (dist < getPenguinR() * 2 && dist > 0.01) {
         const nx = dx / dist, ny = dy / dist;
         const relV = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
         if (relV < 0) {
@@ -702,7 +714,7 @@ function update(dt) {
           b.spinVel = (Math.random() - 0.5) * s;
         }
         // Push apart fully so they never overlap/tunnel
-        const ov = PENGUIN_R * 2 - dist + 1;
+        const ov = getPenguinR() * 2 - dist + 1;
         a.x -= nx * ov * 0.5; a.y -= ny * ov * 0.5;
         b.x += nx * ov * 0.5; b.y += ny * ov * 0.5;
         spawnParticles((a.x + b.x) / 2, (a.y + b.y) / 2, '#aef');
@@ -713,7 +725,7 @@ function update(dt) {
   const pr = getPlatformR();
   for (const p of penguins) {
     if (!p.alive) continue;
-    if (Math.hypot(p.x - platformX, p.y - platformY) > pr + PENGUIN_R * 0.6) {
+    if (Math.hypot(p.x - platformX, p.y - platformY) > pr + getPenguinR() * 0.6) {
       p.alive = false;
       spawnParticles(p.x, p.y, p.color, 16);
     }
@@ -958,25 +970,25 @@ function draw() {
   for (const p of penguins) {
     ctx.save();
     if (!p.alive) ctx.globalAlpha = 0.18;
-    const size = PENGUIN_R * 2.3;
+    const size = getPenguinR() * 2.3;
     ctx.translate(p.x, p.y); ctx.rotate(p.facingAngle);
     const img = skinImgs[p.skinIdx ?? 0];
     if (img && img.complete && img.naturalWidth) ctx.drawImage(img, -size / 2, -size / 2, size, size);
-    else { ctx.beginPath(); ctx.arc(0, 0, PENGUIN_R, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0, 0, getPenguinR(), 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill(); }
     ctx.restore();
 
     if (p.alive) {
       const isMe2 = mpMode ? p === penguins[myPeerIdx] : p.isPlayer;
       if (isMe2) {
-        ctx.beginPath(); ctx.arc(p.x, p.y, PENGUIN_R + 5, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(p.x, p.y, getPenguinR() + 5, 0, Math.PI * 2);
         ctx.strokeStyle = p.color; ctx.lineWidth = 2.5; ctx.stroke();
       }
       // Draw name with dark outline for visibility on white platform
       ctx.font = 'bold 11px Segoe UI,sans-serif'; ctx.textAlign = 'center';
       ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3;
-      ctx.strokeText(p.name, p.x, p.y - PENGUIN_R - 6);
+      ctx.strokeText(p.name, p.x, p.y - getPenguinR() - 6);
       ctx.fillStyle = isMe2 ? p.color : '#fff';
-      ctx.fillText(p.name, p.x, p.y - PENGUIN_R - 6);
+      ctx.fillText(p.name, p.x, p.y - getPenguinR() - 6);
     }
   }
 
