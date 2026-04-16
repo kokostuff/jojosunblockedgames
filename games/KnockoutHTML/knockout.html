@@ -361,8 +361,7 @@ body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-
       <div id="lobby-mode-row">
         <span class="mode-label">Mode:</span>
         <select id="gamemode-select">
-          <option value="bots-normal">vs Bots (5 rounds)</option>
-          <option value="bots-infinite">vs Bots (Infinite)</option>
+          <option value="bots">vs Bots</option>
           <option value="mp" id="mp-option" style="display:none">Multiplayer</option>
         </select>
       </div>
@@ -528,24 +527,53 @@ const waitingBanner = document.getElementById('waiting-banner');
 const mpScreen = document.getElementById('mp-screen');
 const doJoinBtn = document.getElementById('doJoinBtn');
 
+// Add this global tracking variable right above your resize function
+let currentRawR = null;
+
 function resize() {
   const dpr = window.devicePixelRatio || 1;
   const navH = document.getElementById('lobby-nav')?.offsetHeight || 56;
   const newPX = window.innerWidth / 2;
   const newPY = navH + (window.innerHeight - navH) / 2; // center in usable area below nav
+
+  // Calculate the base radius of the platform (ignoring round shrink)
+  const rawR = Math.min(window.innerWidth, window.innerHeight) * getPlatformBase();
+  if (currentRawR === null) currentRawR = rawR;
+  
+  // Determine the scale difference caused by the window resize
+  const scale = currentRawR ? (rawR / currentRawR) : 1;
+
   canvas.width = Math.floor(window.innerWidth * dpr);
   canvas.height = Math.floor(window.innerHeight * dpr);
   canvas.style.width = window.innerWidth + 'px';
   canvas.style.height = window.innerHeight + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  if (penguins.length && phase !== 'idle') {
-    const dx = newPX - platformX, dy = newPY - platformY;
-    for (const p of penguins) { p.x += dx; p.y += dy; }
-  }
+  
+  // Penguins use platform-relative coords — just move the platform centre
   platformX = newPX;
   platformY = newPY;
-}
 
+  // Scale penguins' relative positions and velocities to keep them accurately placed
+  if (scale !== 1 && typeof penguins !== 'undefined' && penguins.length > 0) {
+    for (const p of penguins) {
+      p.rx *= scale;
+      p.ry *= scale;
+      p.vx *= scale;
+      p.vy *= scale;
+    }
+    
+    // Sync the updated state with the physics worker and multiplayer clients
+    if (typeof physicsWorker !== 'undefined' && physicsWorker && phase === 'launching') {
+      sendStateToWorker();
+    }
+    if (typeof mpMode !== 'undefined' && mpMode && isHost) {
+      broadcastState();
+    }
+  }
+  
+  // Update the tracker for the next resize event
+  currentRawR = rawR;
+}
 const bgImg = new Image(); bgImg.src = 'images/bg.jpg';
 const menuOverlayImg = new Image(); menuOverlayImg.src = 'images/menuoverlay.png';
 
@@ -636,8 +664,10 @@ function spawnPenguin(i, total, isMe, name, color, skinIdx) {
   const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
   const dist = getPlatformR() * 0.52;
   return {
-    x: platformX + Math.cos(angle) * dist,
-    y: platformY + Math.sin(angle) * dist,
+    rx: Math.cos(angle) * dist,
+    ry: Math.sin(angle) * dist,
+    get x() { return platformX + this.rx; },
+    get y() { return platformY + this.ry; },
     vx: 0, vy: 0, alive: true,
     isPlayer: isMe, isBot: false,
     color: color || '#888',
@@ -687,7 +717,7 @@ const PHYSICS_WORKER_SRC = `
       p.vx *= FRICTION; p.vy *= FRICTION;
       if (Math.abs(p.vx) < STOP_THRESH) p.vx = 0; else allStopped = false;
       if (Math.abs(p.vy) < STOP_THRESH) p.vy = 0; else allStopped = false;
-      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.rx += p.vx * dt; p.ry += p.vy * dt;
       p.spinVel *= SPIN_FRICTION; p.facingAngle += p.spinVel * dt;
       const spd = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
       if (spd > STOP_THRESH) { p.facingAngle = Math.atan2(p.vy, p.vx); allStopped = false; }
@@ -698,22 +728,25 @@ const PHYSICS_WORKER_SRC = `
       for (let j = i+1; j < penguins.length; j++) {
         const a = penguins[i], b = penguins[j];
         if (!a.alive || !b.alive) continue;
-        const dx = b.x-a.x, dy = b.y-a.y;
+        const dx = b.rx-a.rx, dy = b.ry-a.ry;
         const dist = Math.sqrt(dx*dx+dy*dy);
         if (dist < PENGUIN_R*2 && dist > 0.01) {
           const nx = dx/dist, ny = dy/dist;
           const relV = (b.vx-a.vx)*nx + (b.vy-a.vy)*ny;
           if (relV < 0) {
             const impulse = relV * 1.4;
-            a.vx += impulse*nx*0.20; a.vy += impulse*ny*0.20;
-            b.vx -= impulse*nx*0.80; b.vy -= impulse*ny*0.80;
+            // Distribute knockback evenly (50/50)
+            a.vx += impulse*nx*0.50; a.vy += impulse*ny*0.50;
+            b.vx -= impulse*nx*0.50; b.vy -= impulse*ny*0.50;
+            
             const s = Math.abs(relV)*0.07;
-            a.spinVel = (Math.random()-0.5)*s*0.3;
+            // Distribute spin out evenly as well
+            a.spinVel = (Math.random()-0.5)*s;
             b.spinVel = (Math.random()-0.5)*s;
           }
           const ov = PENGUIN_R*2 - dist + 1;
-          a.x -= nx*ov*0.5; a.y -= ny*ov*0.5;
-          b.x += nx*ov*0.5; b.y += ny*ov*0.5;
+          a.rx -= nx*ov*0.5; a.ry -= ny*ov*0.5;
+          b.rx += nx*ov*0.5; b.ry += ny*ov*0.5;
         }
       }
     }
@@ -721,8 +754,8 @@ const PHYSICS_WORKER_SRC = `
     // Fall off
     for (const p of penguins) {
       if (!p.alive) continue;
-      const dx = p.x - state.platformX, dy = p.y - state.platformY;
-      if (Math.sqrt(dx*dx+dy*dy) > state.platformR + PENGUIN_R*0.6) p.alive = false;
+      // p.rx/ry are relative to platform centre
+      if (Math.sqrt(p.rx*p.rx + p.ry*p.ry) > state.platformR + PENGUIN_R*0.6) p.alive = false;
     }
 
     state.allStopped = allStopped;
@@ -775,7 +808,11 @@ function sendStateToWorker() {
     type: 'setState',
     state: {
       phase,
-      penguins: penguins.map(p => ({ ...p })),
+      penguins: penguins.map(p => ({
+        rx: p.rx, ry: p.ry, vx: p.vx, vy: p.vy,
+        alive: p.alive, facingAngle: p.facingAngle, spinVel: p.spinVel,
+        isPlayer: p.isPlayer, isBot: p.isBot, color: p.color, skinIdx: p.skinIdx ?? 0
+      })),
       platformX, platformY, platformR: pr, PENGUIN_R
     }
   });
@@ -788,7 +825,7 @@ function applyWorkerState(ws) {
   // Sync positions/velocities from worker back to main thread
   ws.penguins.forEach((wp, i) => {
     if (!penguins[i]) return;
-    penguins[i].x = wp.x; penguins[i].y = wp.y;
+    penguins[i].rx = wp.rx; penguins[i].ry = wp.ry;
     penguins[i].vx = wp.vx; penguins[i].vy = wp.vy;
     penguins[i].alive = wp.alive;
     penguins[i].facingAngle = wp.facingAngle;
@@ -803,14 +840,14 @@ function applyWorkerState(ws) {
     if (alive.length <= 1) checkRoundEnd(alive);
     else if (ws.allStopped) { broadcastPhase('aim'); resumeAimPhase(); }
   } else if (!mpMode) {
-    const playerAlive = alive.find(p => p.isPlayer);
     const botsAlive = alive.filter(p => p.isBot);
-    if (!playerAlive || botsAlive.length === 0 || alive.length === 0) checkRoundEnd(alive);
+    // Only end when all bots eliminated or everyone fell — player dying doesn't stop the round
+    if (botsAlive.length === 0 || alive.length === 0) checkRoundEnd(alive);
     else if (ws.allStopped) resumeAimPhase();
     // Spawn particles for newly dead penguins
     ws.penguins.forEach((wp, i) => {
       if (!wp.alive && penguins[i] && penguins[i]._wasAlive) {
-        spawnParticles(wp.x, wp.y, penguins[i].color, 16);
+        spawnParticles(platformX + wp.rx, platformY + wp.ry, penguins[i].color, 16);
       }
       if (penguins[i]) penguins[i]._wasAlive = penguins[i].alive;
     });
@@ -915,7 +952,7 @@ function resumeAimPhase() {
   aimStart = null; aimEnd = null; isDragging = false;
   for (const p of penguins) {
     if (!p.alive) continue;
-    p.aimAngle = null; p.aimPower = 0; p.launched = false; p.vx = 0; p.vy = 0; p.spinVel = 0;
+    p.aimAngle = null; p.aimPower = 0; p.launched = false; p.vx = 0; p.vy = 0; p.spinVel = 0; // rx/ry stay — penguins remain where they stopped
   }
   phase = 'aim'; pendingAims = {};
   phaseEl.textContent = 'AIM PHASE';
@@ -944,8 +981,16 @@ function checkRoundEnd(alive) {
     showResult(iWon ? 'You win!' : `${winner.name} wins!`, iWon);
   } else {
     const playerAlive = alive.find(p => p.isPlayer);
-    if (!playerAlive) showResult('Knocked out!', false);
-    else {
+    const botsAlive = alive.filter(p => p.isBot);
+    if (botsAlive.length === 0 && !playerAlive) {
+      // All bots AND player fell — treat as everyone fell
+      roundShrink = Math.max(0, roundShrink - 1);
+      showResult("Everyone fell! Arena reset.", "reset");
+    } else if (!playerAlive) {
+      // Bots survived, player did not — next round anyway (spectator mode done)
+      round++; roundShrink++;
+      showResult('You got knocked out!', true); // still advance
+    } else {
       round++; roundShrink++;
       if (maxRounds > 0 && round > maxRounds) {
         showResult('Game complete! You won!', true);
@@ -1475,7 +1520,7 @@ function receiveAim(msg) {
 function broadcastState() {
   const msg = {
     type: 'state', phase,
-    penguins: penguins.map(p => ({ x: p.x, y: p.y, vx: p.vx, vy: p.vy, alive: p.alive, facingAngle: p.facingAngle, spinVel: p.spinVel, skinIdx: p.skinIdx ?? 0 }))
+    penguins: penguins.map(p => ({ rx: p.rx, ry: p.ry, vx: p.vx, vy: p.vy, alive: p.alive, facingAngle: p.facingAngle, spinVel: p.spinVel, skinIdx: p.skinIdx ?? 0 }))
   };
   connections.forEach(c => { try { c.send(msg); } catch(e){} });
 }
@@ -1487,7 +1532,8 @@ function broadcastPhase(phaseType) {
 function applyHostState(msg) {
   msg.penguins.forEach((s, i) => {
     if (!penguins[i]) return;
-    Object.assign(penguins[i], { x: s.x, y: s.y, vx: s.vx, vy: s.vy, alive: s.alive, facingAngle: s.facingAngle, spinVel: s.spinVel, skinIdx: s.skinIdx ?? penguins[i].skinIdx ?? 0 });
+    if (s.rx !== undefined) { penguins[i].rx = s.rx; penguins[i].ry = s.ry; }
+    Object.assign(penguins[i], { vx: s.vx, vy: s.vy, alive: s.alive, facingAngle: s.facingAngle, spinVel: s.spinVel, skinIdx: s.skinIdx ?? penguins[i].skinIdx ?? 0 });
   });
   if (msg.phase === 'turning' && phase !== 'turning') { phase = 'turning'; phaseEl.textContent = 'READY...'; aimHint.textContent = ''; waitingBanner.style.display = 'none'; }
   if (msg.phase === 'launching' && phase !== 'launching') { phase = 'launching'; phaseEl.textContent = 'LAUNCH!'; aimHint.textContent = ''; waitingBanner.style.display = 'none'; }
@@ -1573,11 +1619,11 @@ document.getElementById('skin-close').addEventListener('click', () => {
 
 // ── Play button — routes to bots or MP based on dropdown ────────────────
 startBtn.addEventListener('click', () => {
-  const mode = document.getElementById('gamemode-select')?.value || 'bots-normal';
+  const mode = document.getElementById('gamemode-select')?.value || 'bots';
   if (mode === 'mp') {
     showSubScreen('sub-pick');
   } else {
-    maxRounds = mode === 'bots-infinite' ? 0 : 5;
+    // maxRounds is set by the settings menu — don't override it here
     startGame();
   }
 });
