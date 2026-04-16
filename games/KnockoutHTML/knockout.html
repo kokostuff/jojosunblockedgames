@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>KnockOut! 🐧</title>
+<link rel="icon" type="image/x-icon" href="images/favicon.ico">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -71,10 +72,11 @@ body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-
   backdrop-filter: blur(6px);
   flex-shrink: 0;
 }
-#lobby-nav .nav-title {
-  color: #fff; font-size: 22px; font-weight: 900;
-  letter-spacing: -0.5px; text-shadow: 0 0 20px rgba(0,200,255,0.5);
+#lobby-nav .nav-logo {
+  height: 44px; /* Increased from 32px */
   margin-right: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 15px rgba(255,255,255,0.6)); /* Changed to white glow */
 }
 .nav-btn {
   background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.18);
@@ -279,7 +281,7 @@ body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-
   #char-preview img { width: 100px; height: 100px; }
   #play-btn { font-size: 18px; padding: 12px; }
   #lobby-name-input { font-size: 15px; padding: 8px 12px; }
-  #lobby-nav .nav-title { font-size: 16px; }
+  #lobby-nav .nav-logo { height: 34px; } /* Increased mobile height */
   .nav-btn { font-size: 11px; padding: 6px 10px; }
   #lobby-body { padding: 0 16px 20px 16px; }
   .hud-box { padding: 4px 10px; font-size: 10px; }
@@ -332,32 +334,25 @@ body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-
 </div>
 
 <div id="overlay">
-  <!-- Top nav bar -->
   <div id="lobby-nav">
-    <span class="nav-title">KnockOut! 🐧</span>
+    <img src="images/logo.png" alt="KnockOut!" class="nav-logo">
     <button class="nav-btn" id="settingsBtn"><span class="nav-icon nav-label">Settings</span></button>
     <button class="nav-btn" id="mpBtn" style="display:none"><span class="nav-icon">🌐</span><span class="nav-label"> Multiplayer</span></button>
   </div>
 
-  <!-- Lobby body -->
   <div id="lobby-body">
 
-    <!-- Left panel: character + controls -->
     <div id="lobby-left" id="lobby-main">
 
-      <!-- Character preview (click to open skin picker) -->
       <div id="char-preview">
         <img id="char-preview-img" src="skins/blue.png" alt="Your penguin"/>
         <div class="customize-hint">click to customize</div>
       </div>
 
-      <!-- Name input -->
       <input id="lobby-name-input" id="name-input" maxlength="12" placeholder="Name" autocomplete="off" spellcheck="false"/>
 
-      <!-- Play button -->
       <button class="btn btn-primary" id="play-btn" id="startBtn">PLAY</button>
 
-      <!-- Mode selector -->
       <div id="lobby-mode-row">
         <span class="mode-label">Mode:</span>
         <select id="gamemode-select">
@@ -367,7 +362,6 @@ body { padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-
       </div>
     </div>
 
-    <!-- MP sub-screens (shown instead of lobby-left when in MP flow) -->
     <div id="mp-screen">
       <div id="sub-pick" class="sub-screen">
         <h2>Multiplayer</h2>
