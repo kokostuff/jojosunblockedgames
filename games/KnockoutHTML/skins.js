@@ -9,6 +9,7 @@ const SKIN_FILES = [
   'Black.png',
   'santa.png',
   'gentlemen.png',
+  'mario.png'
 ];
 
 const SKIN_NAMES = [
@@ -16,4 +17,5 @@ const SKIN_NAMES = [
   'Black',
   'Santa',
   'Gentlemen',
+  'Mario',
 ];
