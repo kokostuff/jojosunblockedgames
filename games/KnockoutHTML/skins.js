@@ -1,1 +1,16 @@
-eval(atob('Y29uc3QgU0tJTl9GSUxFUyA9IFsKICAnYmx1ZS5wbmcnLAogICdCbGFjay5wbmcnLAogICdzYW50YS5wbmcnLAogICdnZW50bGVtZW4ucG5nJywKICAnbWFyaW8ucG5nJwpdOwoKY29uc3QgU0tJTl9OQU1FUyA9IFsKICAnQmx1ZScsCiAgJ0JsYWNrJywKICAnU2FudGEnLAogICdHZW50bGVtZW4nLAogICdNYXJpbycsCl07'));
+
+const SKIN_FILES = [
+  'blue.png',
+  'Black.png',
+  'santa.png',
+  'gentlemen.png',
+  'mario.png'
+];
+
+const SKIN_NAMES = [
+  'Blue',
+  'Black',
+  'Santa',
+  'Gentlemen',
+  'Mario',
+];
